@@ -1,0 +1,38 @@
+### The terminal(终端)
+
+- 专有名词
+  - GUI = 图形用户界面
+  - command line
+    - CLI = 命令行界面
+  - terminal 文本 输入/输出 环境
+    - console 物理终端
+  - shell/base
+    - unix、linux、mac
+  - command prompt、window command、cmd、dos prompt
+    - windows
+- Shell / base commands
+  - shell / base commands
+    - pwd 查看当前所处的路径，会显示整个路径名
+    - ls 显示当前目录所有内容
+    - ls -la 显示当前目录中所有内容，并展示例如：权限、用户、时间、分组等信息
+      - permissions
+        - owner、group、world
+        - r、w、x
+        - 4、2、1
+        - d=directory
+    - clear 终端清屏
+    - cd 切换到对应的目录
+    - mkdir 创建新目录
+    - touch 用于更新文件的访问和修改时间，若文件不存在系统会建立一个新文件
+    - nano < file > 字符终端的文本编辑器
+    - cat < file > 查看文件的内容、连接文件、创建一个或多个文件和重定向输入到终端或文件
+    - rm < file/folder name >删除文件或目录
+      - 参数 -rf 递归删除目录及文件或文件不提示信息
+    - env 查看当前的全局环境变量
+      - .bash_profile & .bashrc 环境变量文件
+    - grep 文本搜索工具，根据指定的模式（过滤条件）对目标文本逐行匹配检查，打印匹配到的行
+      - cat < file > | grep text
+      - ls | grep -i documents
+    - chmod 设置文件或目录的权限
+      - chmod options permissions filenam
+      - chmod 777 < file >
