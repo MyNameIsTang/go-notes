@@ -187,6 +187,7 @@
     - 将函数作为参数的最好的例子是函数 `strings.IndexFunc()`，该函数的签名是 `func IndexFunc(s string, f func(c rune) bool) int`，它的返回值是字符串 s 中第一个使函数 f(c) 返回 true 的 Unicode 字符的索引值。如果找不到，则返回 -1。
 
 8.  闭包
+
     - 不希望给函数起名字的时候，可以使用匿名函数，例如：`func(x, y int) int { return x + y }`。
     - 这样的一个函数不能够独立存在（编译器会返回错误：non-declaration statement outside function body），但可以被赋值于某个变量，即保存函数的地址到变量中：`fplus := func(x, y int) int { return x + y }`，然后通过变量名对函数进行调用：`fplus(3,4)`。
     - 也可以直接对匿名函数进行调用：`func(x, y int) int { return x + y } (3, 4)`。
@@ -207,3 +208,72 @@
       - 这种状态（作用域内的变量）都被共享到闭包的环境中，因此这些变量可以在闭包中被操作，直到被销毁。
       - 闭包经常被用作包装函数：它们会预先定义好 1 个或多个参数以用于包装。
       - 另一个不错的应用就是使用闭包来完成更加简洁的错误检查
+
+9.  应用闭包：将函数作为返回值
+
+    ```
+       func Add2() (func(b int) int)
+       func Adder(a int) (func(b int) int)
+    ```
+
+    - 闭包函数保存并积累其中的变量的值，不管外部函数退出与否，它都能够继续操作外部函数中的局部变量。
+    - 这些局部变量同样可以是参数。
+    - 在闭包中使用到的变量可以是在闭包函数体内声明的，也可以是在外部函数声明的
+      ```
+         var g int
+         go func(i int) {
+            s := 0
+            for j := 0; j < i; j++ { s += j }
+            g = s
+         }(1000)
+      ```
+    - 这样闭包函数就能够被应用到整个集合的元素上，并修改它们的值。然后这些变量就可以用于表示或计算全局或平均值。
+      ```
+         func fi() func() int {
+            pre1, pre2 := 0, 1
+            return func() int {
+               pre1, pre2 = pre2, pre1+pre2
+               return pre1
+            }
+         }
+      ```
+    - 一个返回值为另一个函数的函数可以被称之为工厂函数，这在您需要创建一系列相似的函数的时候非常有用。
+      ```
+         func MakeAddSuffix(suffix string) func(string) string {
+            return func(name string) string {
+               if !strings.HasSuffix(name, suffix) {
+                  return name + suffix
+               }
+               return name
+            }
+         }
+      ```
+    - 可以返回其它函数的函数和接受其它函数作为参数的函数均被称之为高阶函数，是函数式语言的特点。
+    - 函数也是一种值，因此很显然 Go 语言具有一些函数式语言的特性。
+    - 闭包在 Go 语言中非常常见，常用于 goroutine 和管道操作。
+
+10. 使用闭包调试
+
+    - 在分析和调试复杂的程序时，无数个函数在不同的代码文件中相互调用，如果这时候能够准确地知道哪个文件中的具体哪个函数正在执行，对于调试是十分有帮助的。
+    - 可以使用 runtime 或 log 包中的特殊函数来实现这样的功能。
+    - 包 runtime 中的函数 Caller() 提供了相应的信息，因此可以在需要的时候实现一个 where() 闭包函数来打印函数执行的位置：
+      ```
+         where := func() {
+            _, file, line, _ := runtime.Caller(1)
+            log.Printf("%s:%d", file, line)
+         }
+         where()
+         // some code
+         where()
+         // some more code
+         where()
+      ```
+    - 可以设置 log 包中的 flag 参数来实现：
+      ```
+         log.SetFlags(log.Llongfile)
+         log.Print("")
+      ```
+    - 或使用一个更加简短版本的 where() 函数：
+      ```
+         var where = log.Print
+      ```
