@@ -277,3 +277,39 @@
       ```
          var where = log.Print
       ```
+
+11. 计算函数执行时间
+
+    - 知道一个计算执行消耗的时间是非常有意义的，尤其是在对比和基准测试中。
+    - 最简单的一个办法就是在计算开始之前设置一个起始时间，再记录计算结束时的结束时间，最后计算它们的差值，就是这个计算所消耗的时间。
+    - 使用 time 包中的 Now() 和 Sub() 函数：
+      ```
+         start := time.Now()
+         longCalculation()
+         end := time.Now()
+         delta := end.Sub(start)
+      ```
+
+12. 通过内存缓存来提升性能
+
+    - 当在进行大量的计算时，提升性能最直接有效的一种方式就是避免重复计算。通过在内存中缓存和重复利用相同计算的结果，称之为内存缓存。
+
+      ```
+         var fibs [LEN]uint64
+         func fibonacci(n int) (res uint64) {
+            // memoization: check if fibonacci(n) is already known in array:
+            if fibs[n] != 0 {
+               res = fibs[n]
+               return
+            }
+            if n <= 1 {
+               res = 1
+            } else {
+               res = fibonacci(n-1) + fibonacci(n-2)
+            }
+            fibs[n] = res
+            return
+         }
+      ```
+
+    - 内存缓存的技术在使用计算成本相对昂贵的函数时非常有用（不仅限于例子中的递归），譬如大量进行相同参数的运算。这种技术还可以应用于纯函数中，即相同输入必定获得相同输出的函数。
