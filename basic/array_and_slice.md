@@ -227,6 +227,7 @@
    - `func copy(dst, src []T) int` 方法将类型为 T 的切片从源地址 src 拷贝到目标地址 dst，覆盖 dst 的相关元素，并且返回拷贝的元素个数。源地址和目标地址可能会有重叠。拷贝个数是 src 和 dst 的长度最小值。如果 src 是字符串那么元素类型就是 byte。如果你还想继续使用 src，在拷贝结束后执行 src = dst。
 
 6. 字符串、数组和切片的应用
+
    1. 从字符串生成字节切片
       - 假设 s 是一个字符串（本质上是一个字节数组），那么就可以直接通过 `c := []byte(s)` 来获取一个字节的切片 c 。
       - 还可以通过 `copy()` 函数来达到相同的目的：`copy(dst []byte, src string)`。
@@ -245,3 +246,77 @@
       - 因为指针对用户来说是完全不可见，因此可以依旧把字符串看做是一个值类型，也就是一个字符数组。
       - 字符串 `string s = "hello"` 和子字符串 `t = s[2:3]` 在内存中的结构可以用下图表示：
         ![Alt text](./image/slice_fig7.4.png)
+   4. 修改字符串中的某个字符
+      - Go 语言中的字符串是不可变的，也就是说 `str[index]` 这样的表达式是不可以被放在等号左侧的。如果尝试运行 `str[i] = 'D'` 会得到错误：`cannot assign to str[i]`。
+      - 先将字符串转换成字节数组，然后再通过修改数组中的元素值来达到修改字符串的目的，最后将字节数组转换回字符串格式。
+   5. 字符数组对比函数
+      - `Compare()` 函数会返回两个字节数组字典顺序的整数对比结果，即 `0 if a == b, -1 if a < b, 1 if a > b`。
+      ```
+        func Compare(a, b[]byte) int {
+          for i:=0; i < len(a) && i < len(b); i++ {
+              switch {
+              case a[i] > b[i]:
+                  return 1
+              case a[i] < b[i]:
+                  return -1
+              }
+          }
+          // 数组的长度可能不同
+          switch {
+          case len(a) < len(b):
+              return -1
+          case len(a) > len(b):
+              return 1
+          }
+          return 0 // 数组相等
+        }
+      ```
+   6. 搜索及排序切片和数组
+      - 标准库提供了 sort 包来实现常见的搜索和排序操作。
+      - 可以使用 sort 包中的函数 `func Ints(a []int)` 来实现对 int 类型的切片排序。例如 `sort.Ints(arri)`，其中变量 arri 就是需要被升序排序的数组或切片。
+      - 为了检查某个数组是否已经被排序，可以通过函数 `IntsAreSorted(a []int) bool` 来检查，如果返回 true 则表示已经被排序。
+      - 类似的，可以使用函数 `func Float64s(a []float64)` 来排序 float64 的元素，或使用函数 `func Strings(a []string)` 排序字符串元素。
+      - 想要在数组或切片中搜索一个元素，该数组或切片必须先被排序（因为标准库的搜索算法使用的是二分法）。然后，您就可以使用函数 `func SearchInts(a []int, n int) int` 进行搜索，并返回对应结果的索引值。还可以搜索 float64 和字符串。
+   7. `append()` 函数常见操作
+      - 将切片 b 的元素追加到切片 a 之后：`a = append(a, b...)`。
+      - 复制切片 a 的元素到新的切片 b 上：
+        ```
+          b = make([]T, len(a))
+          copy(b, a)
+        ```
+      - 删除位于索引 i 的元素：`a = append(a[:i], a[i+1:]...)`。
+      - 切除切片 a 中从索引 i 至 j 位置的元素：`a = append(a[:i], a[j:]...)`。
+      - 为切片 a 扩展 j 个元素长度：`a = append(a, make([]T, j)...)`。
+      - 在索引 i 的位置插入元素 x：`a = append(a[:i], append([]T{x}, a[i:]...)...)`。
+      - 在索引 i 的位置插入长度为 j 的新切片：`a = append(a[:i], append(make([]T, j), a[i:]...)...)`。
+      - 在索引 i 的位置插入切片 b 的所有元素：`a = append(a[:i], append(b, a[i:]...)...)`。
+      - 取出位于切片 a 最末尾的元素 x：`x, a = a[len(a)-1], a[:len(a)-1]`。
+      - 将元素 x 追加到切片 a：`a = append(a, x)`
+      - 可以使用切片和 `append()` 操作来表示任意可变长度的序列。
+      - 相关包：slices、chain 和 lists。
+   8. 切片和垃圾回收
+
+      - 切片的底层指向一个数组，该数组的实际容量可能要大于切片所定义的容量。只有在没有任何切片指向的时候，底层的数组内存才会被释放，这种特性有时会导致程序占用多余的内存。
+      - 函数 FindDigits() 将一个文件加载到内存，然后搜索其中所有的数字并返回一个切片：
+
+        ```
+          var digitRegexp = regexp.MustCompile("[0-9]+")
+
+          func FindDigits(filename string) []byte {
+              b, _ := ioutil.ReadFile(filename)
+              return digitRegexp.Find(b)
+          }
+        ```
+
+        - 代码可以顺利运行，但返回的 []byte 指向的底层是整个文件的数据。只要该返回的切片不被释放，垃圾回收器就不能释放整个文件所占用的内存。换句话说，一点点有用的数据却占用了整个文件的内存。
+        - 可以通过拷贝我们需要的部分到一个新的切片中：
+
+        ```
+          func FindDigits(filename string) []byte {
+            b, _ := ioutil.ReadFile(filename)
+            b = digitRegexp.Find(b)
+            c := make([]byte, len(b))
+            copy(c, b)
+            return c
+          }
+        ```
