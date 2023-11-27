@@ -124,6 +124,7 @@
    -
 
 5. 自定义包和可见性
+
    - 包是 Go 语言中代码组织和代码编译的主要方式。
    - 当写自己包的时候，要使用短小的不含有 \_（下划线）的小写单词来为文件命名。
    - 主程序利用的包必须在主程序编写之前被编译。因此，按照惯例，子目录和包之间有着密切的联系：为了区分，不同包存放在不同的目录下，每个包（所有属于这个包中的 go 文件）都存放在和包名相同的子目录下。
@@ -140,3 +141,138 @@
      - 一个没有导入的包将通过分配初始值给所有的包级变量和调用源码中定义的包级 `init()` 函数来初始化。一个包可能有多个 `init()` 函数甚至在一个源码文件中。它们的执行是无序的。这是最好的例子来测定包的值是否只依赖于相同包下的其他值或者函数。
      - `init()` 函数是不能被调用的。
      - 导入的包在包自身初始化前被初始化，而一个包在程序执行中只能初始化一次。
+
+6. 为自定义包使用 godoc
+
+   - godoc 工具在显示自定义包中的注释也有很好的效果：注释必须以 // 开始并无空行放在声明（包，类型，函数）前。godoc 会为每个文件生成一系列的网页。
+   - 例如：
+     - 在 doc_examples 目录下我们有用来排序的 go 文件，文件中有一些注释（文件需要未编译）。
+     - 命令行下进入目录下并输入命令：`godoc -http=:6060 -goroot="."`。
+     - . 是指当前目录，-goroot 参数可以是 /path/to/my/package1 这样的形式指出 package1 在你源码中的位置或接受用冒号形式分隔的路径，无根目录的路径为相对于当前目录的相对路径
+     - 在浏览器打开地址：http://localhost:6060
+   - 如果在一个团队中工作，并且源代码树被存储在网络硬盘上，就可以使用 godoc 给所有团队成员连续文档的支持。通过设置 sync_minutes=n，你甚至可以让它每 n 分钟自动更新您的文档！
+
+7. 使用 `go install` 安装自定义包
+
+   - `go install` 是 Go 中自动包安装工具：如需要将包安装到本地它会从远端仓库下载包：检出、编译和安装一气呵成。
+   - 在包安装前的先决条件是要自动处理包自身依赖关系的安装。被依赖的包也会安装到子目录下，但是没有文档和示例：可以到网上浏览。
+   - `go install` 使用了 GOPATH 变量。
+   - 远端包
+     - 需要创建目录在 Go 安装目录下，所以需要使用 root 或者 su 的身份执行命令。
+     - 确保 Go 环境变量已经设置在 root 用户下的 ./bashrc 文件中。
+     - 使用命令安装：`go install` tideland-cgl.googlecode.com/hg。
+     - 可执行文件 hg.a 将被放到 $GOROOT/pkg/linux_amd64/tideland-cgl.googlecode.com 目录下，源码文件被放置在 $GOROOT/src/tideland-cgl.googlecode.com/hg 目录下，同样有个 hg.a 放置在 \_obj 的子目录下。
+     - 现在就可以在 go 代码中使用这个包中的功能了，例如使用包名 cgl 导入：`import cgl "tideland-cgl.googlecode.com/hg"`。
+     - 从 Go1 起 `go install` 安装 Google Code 的导入路径形式是：`"code.google.com/p/tideland-cgl"`。
+   - 升级到新的版本
+     - 更新到新版本的 Go 之后本地安装包的二进制文件将全被删除。如果想更新，重编译、重安装所有的 go 安装包可以使用：`go install -a`。
+     - go 的版本发布的很频繁，所以需要注意发布版本和包的兼容性。go1 之后都是自己编译自己了。
+     - `go install` 同样可以使用 `go install` 编译链接并安装本地自己的包。
+
+8. 自定义包的目录结构、go install 和 go test
+
+   1. 自定义包的目录结构：uc 代表通用包名, 名字为粗体的代表目录，斜体代表可执行文件
+
+      ```
+        /home/user/goprograms
+            ucmain.go	(uc 包主程序)
+            Makefile (ucmain 的 makefile)
+            ucmain
+            src/uc	 (包含 uc 包的 go 源码)
+              uc.go
+              uc_test.go
+              Makefile (包的 makefile)
+              uc.a
+              _obj
+                uc.a
+              _test
+                uc.a
+            bin		(包含最终的执行文件)
+              ucmain
+            pkg/linux_amd64
+              uc.a	(包的目标文件)
+      ```
+
+      - 将项目放在 goprograms 目录下 (可以创建一个环境变量 GOPATH：在 .profile 和 .bashrc 文件中添加 `export GOPATH=/home/user/goprograms`)，而项目将作为 src 的子目录。uc 包中的功能在 uc.go 中实现。
+      - `uc.go`：
+
+        ```
+          package uc
+          import "strings"
+
+          func UpperCase(str string) string {
+            return strings.ToUpper(str)
+          }
+        ```
+
+      - 包通常附带一个或多个测试文件，在这创建了一个 uc_test.go 文件：
+
+        ```
+          package uc
+          import "testing"
+
+          type ucTest struct {
+            in, out string
+          }
+
+          var ucTests = []ucTest {
+            ucTest{"abc", "ABC"},
+            ucTest{"cvo-az", "CVO-AZ"},
+            ucTest{"Antwerp", "ANTWERP"},
+          }
+
+          func TestUC(t *testing.T) {
+            for _, ut := range ucTests {
+              uc := UpperCase(ut.in)
+              if uc != ut.out {
+                t.Errorf("UpperCase(%s) = %s, must be %s", ut.in, uc,
+                ut.out)
+              }
+            }
+          }
+        ```
+
+      - 通过指令编译并安装包到本地：`go install uc`, 这会将 uc.a 复制到 pkg/linux_amd64 下面。
+      - 使用 make ，通过以下内容创建一个包的 Makefile 在 src/uc 目录下:
+
+        ```
+          include $(GOROOT)/src/Make.inc
+
+          TARG=uc
+          GOFILES=\
+              uc.go\
+
+          include $(GOROOT)/src/Make.pkg
+        ```
+
+      - 在该目录下的命令行调用: gomake， 这将创建一个 \_obj 目录并将包编译生成的存档 uc.a 放在该目录下。
+      - 这个包可以通过 go test 测试。创建一个 uc.a 的测试文件在目录下，输出为 PASS 时测试通过。
+      - 有可能当前的用户不具有足够的资格使用 go install（没有权限）。这种情况下，选择 root 用户 su。确保 Go 环境变量和 Go 源码路径也设置给 su，同样也适用你的普通用户
+      - 创建主程序 ucmain.go:
+
+        ```
+          package main
+          import (
+            "./src/uc"
+            "fmt"
+          )
+
+          func main() {
+            str1 := "USING package uc!"
+            fmt.Println(uc.UpperCase(str1))
+          }
+        ```
+
+      - 然后在这个目录下输入 go install。
+      - 另外复制 uc.a 到 /home/user/goprograms 目录并创建一个 Makefile 并写入文本：
+
+        ```
+          include $(GOROOT)/src/Make.inc
+          TARG=ucmain
+          GOFILES=\
+            ucmain.go\
+
+          include $(GOROOT)/src/Make.cmd
+        ```
+
+      - 执行 gomake 编译 ucmain.go 生成可执行文件 ucmain，运行 ./ucmain 显示: USING PACKAGE UC!。
