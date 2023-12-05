@@ -276,3 +276,28 @@
         ```
 
       - 执行 gomake 编译 ucmain.go 生成可执行文件 ucmain，运行 ./ucmain 显示: USING PACKAGE UC!。
+
+   2. 本地安装包
+
+      - 本地包在用户目录下，使用给出的目录结构，以下命令用来从源码安装本地包：
+        ```
+          go install /home/user/goprograms/src/uc # 编译安装 uc
+          cd /home/user/goprograms/uc
+          go install ./uc 	# 编译安装 uc（和之前的指令一样）
+          cd ..
+          go install .	# 编译安装 ucmain
+        ```
+      - 安装到 $GOPATH 下：如果我们想安装的包在系统上的其他 Go 程序中被使用，它一定要安装到 $GOPATH 下。 这样做，在 .profile 和 .bashrc 中设置 `export GOPATH=/home/user/goprograms`。
+      - 然后执行 `go install uc` 将会复制包存档到 `$GOPATH/pkg/LINUX_AMD64/uc`。
+      - 现在，uc 包可以通过 `import "uc"` 在任何 Go 程序中被引用。
+
+   3. 依赖系统的代码
+      - 在不同的操作系统上运行的程序以不同的代码实现是非常少见的：绝大多数情况下语言和标准库解决了大部分的可移植性问题。
+      - 去写平台特定的代码，例如汇编语言。这种情况下，按照下面的约定是合理的：
+        ```
+          prog1.go
+          prog1_linux.go
+          prog1_darwin.go
+          prog1_windows.go
+        ```
+      - `prog1.go` 定义了不同操作系统通用的接口，并将系统特定的代码写到 `prog1_os.go` 中。 对于 Go 工具你可以指定 `prog1_$GOOS.go` 或 `prog1_$GOARCH.go` 或在平台 Makefile 中：`prog1*$(GOOS).go\` 或 `prog1*$(GOARCH).go\`。
