@@ -134,7 +134,7 @@
      - 如果要在应用中使用一个或多个外部包，首先必须使用 `go install` 在本地机器上安装它们。
        - 使用 http://codesite.ext/author/goExample/goex 这种托管在 Google Code、GitHub 和 Launchpad 等代码网站上的包：`go install codesite.ext/author/goExample/goex`。
        - 将一个名为 codesite.ext/author/goExample/goex 的 map 安装在 `$GOROOT/src/` 目录下。
-       - 通过以下方式，一次性安装，并导入到你的代码中：`import goex "codesite.ext/author/goExample/goex"`。因此该包的 URL 将用作导入路径。
+       - 通过以下方式，一次性安装，并导入到代码中：`import goex "codesite.ext/author/goExample/goex"`。因此该包的 URL 将用作导入路径。
      - 在 http://golang.org/cmd/goinstall/ 的 `go install` 文档中列出了一些广泛被使用的托管在网络代码仓库的包的导入路径。
    - 包的初始化:
      - 程序的执行开始于导入包，初始化 main 包然后调用 `main()` 函数。
@@ -148,9 +148,9 @@
    - 例如：
      - 在 doc_examples 目录下我们有用来排序的 go 文件，文件中有一些注释（文件需要未编译）。
      - 命令行下进入目录下并输入命令：`godoc -http=:6060 -goroot="."`。
-     - . 是指当前目录，-goroot 参数可以是 /path/to/my/package1 这样的形式指出 package1 在你源码中的位置或接受用冒号形式分隔的路径，无根目录的路径为相对于当前目录的相对路径
+     - . 是指当前目录，-goroot 参数可以是 /path/to/my/package1 这样的形式指出 package1 在源码中的位置或接受用冒号形式分隔的路径，无根目录的路径为相对于当前目录的相对路径
      - 在浏览器打开地址：http://localhost:6060
-   - 如果在一个团队中工作，并且源代码树被存储在网络硬盘上，就可以使用 godoc 给所有团队成员连续文档的支持。通过设置 sync_minutes=n，你甚至可以让它每 n 分钟自动更新您的文档！
+   - 如果在一个团队中工作，并且源代码树被存储在网络硬盘上，就可以使用 godoc 给所有团队成员连续文档的支持。通过设置 sync_minutes=n，甚至可以让它每 n 分钟自动更新您的文档！
 
 7. 使用 `go install` 安装自定义包
 
@@ -247,7 +247,7 @@
 
       - 在该目录下的命令行调用: gomake， 这将创建一个 \_obj 目录并将包编译生成的存档 uc.a 放在该目录下。
       - 这个包可以通过 go test 测试。创建一个 uc.a 的测试文件在目录下，输出为 PASS 时测试通过。
-      - 有可能当前的用户不具有足够的资格使用 go install（没有权限）。这种情况下，选择 root 用户 su。确保 Go 环境变量和 Go 源码路径也设置给 su，同样也适用你的普通用户
+      - 有可能当前的用户不具有足够的资格使用 go install（没有权限）。这种情况下，选择 root 用户 su。确保 Go 环境变量和 Go 源码路径也设置给 su，同样也适用普通用户
       - 创建主程序 ucmain.go:
 
         ```
@@ -300,4 +300,31 @@
           prog1_darwin.go
           prog1_windows.go
         ```
-      - `prog1.go` 定义了不同操作系统通用的接口，并将系统特定的代码写到 `prog1_os.go` 中。 对于 Go 工具你可以指定 `prog1_$GOOS.go` 或 `prog1_$GOARCH.go` 或在平台 Makefile 中：`prog1*$(GOOS).go\` 或 `prog1*$(GOARCH).go\`。
+      - `prog1.go` 定义了不同操作系统通用的接口，并将系统特定的代码写到 `prog1_os.go` 中。 对于 Go 工具可以指定 `prog1_$GOOS.go` 或 `prog1_$GOARCH.go` 或在平台 Makefile 中：`prog1*$(GOOS).go\` 或 `prog1*$(GOARCH).go\`。
+
+9. 通过 Git 打包和安装
+
+   1. 安装到 GitHub
+      - 在 Linux 和 OS X 的机器上 Git 是默认安装的，在 Windows 上必须先自行安装。
+      - 进入到 uc 包目录下并创建一个 Git 仓库在里面: `git init`。信息提示: `Initialized empty git repository in $PWD/uc`。
+      - 每一个 Git 项目都需要一个对包进行描述的 README.md 文件，所以需要打开文本编辑器（gedit、notepad 或 LiteIde）并添加一些说明进去。
+        - 添加所有文件到仓库：`git add README.md uc.go uc_test.go Makefile`。
+        - 标记为第一个版本：`git commit -m "initial rivision"`。
+      - 在云端创建一个新的 uc 仓库;发布的指令为（NNNN 替代用户名）:
+        ```
+          git remote add origin git@github.com:NNNN/uc.git
+          git push -u origin master
+        ```
+      - 操作完成后检查 GitHub 上的包页面: `http://github.com/NNNN/uc`。
+   2. 从 GitHub 安装
+      - 从远端项目到本地机器，打开终端并执行（NNNN 是在 GitHub 上的用户名）：`go get github.com/NNNN/uc`。
+      - 这样现在这台机器上的其他 Go 应用程序也可以通过导入路径：`"github.com/NNNN/uc"` 代替 `"./uc/uc"` 来使用。
+      - 也可以将其缩写为：`import uc "github.com/NNNN/uc"`。
+      - 然后修改 Makefile: 将 `TARG=uc` 替换为 `TARG=github.com/NNNN/uc`。
+      - Gomake（和 go install）将通过 $GOPATH 下的本地版本进行工作。
+      - 网站和版本控制系统的其他的选择(括号中为网站所使用的版本控制系统)：
+        - BitBucket(hg/Git)
+        - GitHub(Git)
+        - Google Code(hg/Git/svn)
+        - Launchpad(bzr)
+      - 版本控制系统可以选择熟悉的或者本地使用的代码版本控制。Go 核心代码的仓库是使用 Mercurial(hg) 来控制的，所以它是一个最可能保证可以得到开发者项目中最好的软件。Git 也很出名，同样也适用。如果从未使用过版本控制，这些网站有一些很好的帮助并且可以通过在谷歌搜索 "{name} tutorial"（name 为想要使用的版本控制系统）得到许多很好的教程。
