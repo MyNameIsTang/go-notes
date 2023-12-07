@@ -328,3 +328,20 @@
         - Google Code(hg/Git/svn)
         - Launchpad(bzr)
       - 版本控制系统可以选择熟悉的或者本地使用的代码版本控制。Go 核心代码的仓库是使用 Mercurial(hg) 来控制的，所以它是一个最可能保证可以得到开发者项目中最好的软件。Git 也很出名，同样也适用。如果从未使用过版本控制，这些网站有一些很好的帮助并且可以通过在谷歌搜索 "{name} tutorial"（name 为想要使用的版本控制系统）得到许多很好的教程。
+
+10. Go 的外部包和项目
+
+    - 现在我们知道如何使用 Go 以及它的标准库了，但是 Go 的生态要比这大的多。当着手自己的 Go 项目时，最好先查找下是否有些存在的第三方的包或者项目能不能使用。大多数可以通过 go install 来进行安装。
+    - https://gowalker.org/
+    - 目前已经有许多非常好的外部库，如：
+      - MySQL(GoMySQL), PostgreSQL(go-pgsql), MongoDB (mgo, gomongo), CouchDB (couch-go), ODBC (godbcl), Redis (redis.go) and SQLite3 (gosqlite) database drivers
+      - SDL bindings
+      - Google's Protocal Buffers(goprotobuf)
+      - XML-RPC(go-xmlrpc)
+      - Twitter(twitterstream)
+      - OAuth libraries(GoAuth)
+
+11. 在 Go 程序中使用外部库
+
+    - 当开始一个新项目或增加新的功能到现有的项目，可以通过在应用程序中使用已经存在的库来节省开发时间。为了做到这一点，你必须理解库的 API（应用编程接口），那就是：库中有哪些方法可以调用，如何调用。可能没有这个库的源代码，但作者肯定有记载的 API 以及详细介绍了如何使用它。
+    - 
