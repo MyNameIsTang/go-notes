@@ -1,7 +1,8 @@
 package main
 
 import (
-	_ "basic/urlshortener"
+	"basic/demo"
+	// _ "basic/urlshortener"
 )
 
 // type Person struct {
@@ -11,6 +12,18 @@ import (
 // }
 
 func main() {
+	demo.InitAmonymousStruct()
+	// demo.InitEmbeddStruct()
+	// demo.InitStructAnonymouse()
+	// demo.InitStructTag()
+
+	// demo.InitVCard()
+	// demo.InitRectangle()
+
+	// struct1 := new(demo.ExpStruct)
+	// struct1.Mf1 = 1.1
+	// struct1.Mi1 = 1
+	// fmt.Println(struct1)
 
 	// urlshortener.Server()
 
