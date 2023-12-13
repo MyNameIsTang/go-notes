@@ -27,6 +27,14 @@ func upPerson2(p Person) (res Person) {
 	return
 }
 
+func (p *Person) FirstName() string {
+	return p.firstName
+}
+
+func (p *Person) SetFirstName(name string) {
+	p.firstName = name
+}
+
 func InitPerson() {
 	person := new(Person)
 	person.firstName = "Chris"

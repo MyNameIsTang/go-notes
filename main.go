@@ -12,7 +12,13 @@ import (
 // }
 
 func main() {
-	demo.InitAmonymousStruct()
+
+	demo.InitInheritanceCar()
+	// p := new(demo.Person)
+	// p.SetFirstName("Tom")
+	// fmt.Println(p.FirstName())
+	// demo.InitMethodSet1()
+	// demo.InitAmonymousStruct()
 	// demo.InitEmbeddStruct()
 	// demo.InitStructAnonymouse()
 	// demo.InitStructTag()
