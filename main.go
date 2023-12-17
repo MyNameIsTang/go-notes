@@ -13,7 +13,7 @@ import (
 
 func main() {
 
-	demo.InitInheritanceCar()
+	demo.InitStackArr()
 	// p := new(demo.Person)
 	// p.SetFirstName("Tom")
 	// fmt.Println(p.FirstName())
