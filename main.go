@@ -1,9 +1,6 @@
 package main
 
-import (
-	"basic/demo"
-	// _ "basic/urlshortener"
-)
+// _ "basic/urlshortener"
 
 // type Person struct {
 // 	Name  string `json:"name"`
@@ -13,7 +10,21 @@ import (
 
 func main() {
 
-	demo.InitStackArr()
+	// obj := []int{1, 32}
+
+	// runtime.SetFinalizer(&obj, func(o interface{}) {
+	// 	fmt.Println("Object has been freed!")
+	// })
+
+	// time.Sleep(2 * time.Second)
+	// fmt.Println("123")
+	// runtime.GC()
+
+	// var m runtime.MemStats
+	// runtime.ReadMemStats(&m)
+	// fmt.Printf("%d Kb\n", m.Alloc/1024)
+
+	// demo.InitStackArr()
 	// p := new(demo.Person)
 	// p.SetFirstName("Tom")
 	// fmt.Println(p.FirstName())
