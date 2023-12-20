@@ -1,5 +1,7 @@
 package main
 
+import "basic/demo"
+
 // _ "basic/urlshortener"
 
 // type Person struct {
@@ -10,6 +12,7 @@ package main
 
 func main() {
 
+	demo.InitSimpleInterface()
 	// obj := []int{1, 32}
 
 	// runtime.SetFinalizer(&obj, func(o interface{}) {
