@@ -12,7 +12,7 @@ import "basic/demo"
 
 func main() {
 
-	demo.InitSimpleInterface()
+	demo.InitPerson()
 	// obj := []int{1, 32}
 
 	// runtime.SetFinalizer(&obj, func(o interface{}) {

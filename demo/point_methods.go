@@ -5,6 +5,10 @@ import (
 	"math"
 )
 
+type Magnitude interface {
+	Abs() float64
+}
+
 type Point struct {
 	X, Y float64
 }
@@ -35,8 +39,9 @@ func (p *Polar) Abs() float64 {
 }
 
 func InitPointMethods() {
-	p1 := &Point{10, 4}
+	var p1 Magnitude
+	p1 = &Point{10, 4}
 	fmt.Printf("Point abs :%v\n", p1.Abs())
-	p2 := &Point3{10, 4, 2}
-	fmt.Printf("Point3 abs :%v\n", p2.Abs())
+	p1 = &Point3{10, 4, 2}
+	fmt.Printf("Point3 abs :%v\n", p1.Abs())
 }

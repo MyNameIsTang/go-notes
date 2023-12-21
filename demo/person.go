@@ -10,6 +10,8 @@ type Person struct {
 	lastName  string
 }
 
+type Persons []Person
+
 type number struct {
 	f float32
 }
@@ -35,6 +37,18 @@ func (p *Person) SetFirstName(name string) {
 	p.firstName = name
 }
 
+func (ps Persons) Len() int {
+	return len(ps)
+}
+
+func (ps Persons) Less(i, j int) bool {
+	return ps[i].firstName < ps[j].firstName
+}
+
+func (ps Persons) Swap(i, j int) {
+	ps[i], ps[j] = ps[j], ps[i]
+}
+
 func InitPerson() {
 	person := new(Person)
 	person.firstName = "Chris"
@@ -47,4 +61,8 @@ func InitPerson() {
 	// b := nr{2.3}
 	// c := number(b)
 	// fmt.Println(a, b, c)
+
+	ps := &Persons{{"Tom", "ds"}, {"Jack", "213"}, {"Amc", "213"}}
+	Sort(ps)
+	fmt.Printf("ps sort result is %v\n", ps)
 }
