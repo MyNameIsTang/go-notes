@@ -1,6 +1,8 @@
 package main
 
-import "basic/demo"
+import (
+	"basic/demo"
+)
 
 // _ "basic/urlshortener"
 
@@ -12,7 +14,18 @@ import "basic/demo"
 
 func main() {
 
-	demo.InitPerson()
+	demo.InitCars()
+	// var f float64 = 3.4
+	// v := reflect.TypeOf(f)
+	// v1 := reflect.ValueOf(&f)
+	// fmt.Println(reflect.Float64 == v.Kind())
+	// fmt.Println(v1.Type())
+	// v1 = v1.Elem()
+	// fmt.Println(v1.CanSet())
+	// v1.SetFloat(3.14159)
+	// fmt.Println(v1.Interface())
+	// demo.InitMinInterface()
+
 	// obj := []int{1, 32}
 
 	// runtime.SetFinalizer(&obj, func(o interface{}) {

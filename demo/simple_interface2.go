@@ -25,6 +25,15 @@ func fi(si Simpler) {
 	}
 }
 
+func gI(any Any) {
+	switch t := any.(type) {
+	case Simpler:
+		fmt.Printf("Type Simpler %T with value %v\n", t, t)
+	default:
+		fmt.Printf("Unexpected type %T\n", t)
+	}
+}
+
 func InitSimpleInterface2() {
 	var simple Simpler
 	fi(simple)
@@ -34,4 +43,7 @@ func InitSimpleInterface2() {
 	simple = &Simple{34}
 	fmt.Printf("Simple value is: %v\n", simple.Get())
 	fi(simple)
+	gI(simple)
+	v := 12
+	gI(v)
 }
