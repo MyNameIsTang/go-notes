@@ -14,7 +14,7 @@ import (
 
 func main() {
 
-	demo.InitCars()
+	demo.InitWikiPart1()
 	// var f float64 = 3.4
 	// v := reflect.TypeOf(f)
 	// v1 := reflect.ValueOf(&f)
