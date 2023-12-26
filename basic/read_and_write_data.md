@@ -48,4 +48,48 @@
       - 缓冲区的内容紧接着被完全写入文件：`outputWriter.Flush()`。
       - 如果写入的东西很简单，可以使用 `fmt.Fprintf(outputFile, "Some test data.\n")` 直接将内容写入文件。fmt 包里的 `F...` 开头的 `Print()` 函数可以直接写入任何 `io.Writer`，包括文件
       - 使用 `os.Stdout.WriteString("hello, world\n")`，我们可以输出到屏幕。
-      - 
+3. 文件拷贝
+
+   - 最简单的方式就是使用 io 包：`io.Copy(dst, src)`。
+   - 注意 defer 的使用：当打开 dst 文件时发生了错误，那么 defer 仍然能够确保 `src.Close()` 执行。如果不这么做，src 文件会一直保持打开状态并占用资源。
+
+4. 从命令行读取参数
+
+   1. os 包
+      - os 包中有一个 string 类型的切片变量 `os.Args`，用来处理一些基本的命令行参数，它在程序启动后读取命令行输入的参数。
+      - 命令行参数会放置在切片 `os.Args[]` 中（以空格分隔），从索引 1 开始（os.Args[0] 放的是程序本身的名字，在本例中是 os_args）。
+   2. flag 包
+      - flag 包有一个扩展功能用来解析命令行选项。但是通常被用来替换基本常量，例如，在某些情况下我们希望在命令行给常量一些不一样的值。
+      - 在 flag 包中有一个 Flag 是被定义成一个含有如下字段的结构体：
+        ```
+           type Flag struct {
+              Name     string // name as it appears on command line
+              Usage    string // help message
+              Value    Value  // value as set
+              DefValue string // default value (as text); for usage message
+           }
+        ```
+      - `flag.Parse()` 扫描参数列表（或者常量列表）并设置 flag，`flag.Arg(i)` 表示第 i 个参数。`Parse()` 之后 `flag.Arg(i)` 全部可用，`flag.Arg(0)` 就是第一个真实的 flag，而不是像 `os.Args(0)` 放置程序的名字。
+      - `flag.Narg()` 返回参数的数量。
+      - `flag.PrintDefaults()` 打印 flag 的使用帮助信息。
+      - `flag.VisitAll(fn func(*Flag))` 是另一个有用的功能：按照字典顺序遍历 flag，并且对每个标签调用 fn
+      - 要给 flag 定义其它类型，可以使用 `flag.Int()`，`flag.Float64()`，`flag.String()`。
+
+5. 用 buffer 读取文件
+6. 用切片读写文件
+   - 切片提供了 Go 中处理 I/O 缓冲的标准方式。
+7. 用 defer 关闭文件
+   - defer 关键字对于在函数结束时关闭打开的文件非常有用。
+8. 使用接口的实际例子：fmt.Fprintf
+   - `fmt.Fprintf()` 函数的实际签名：`func Fprintf(w io.Writer, format string, a ...interface{}) (n int, err error)`。
+   - 不是写入一个文件，而是写入一个 `io.Writer` 接口类型的变量，下面是 Writer 接口在 io 包中的定义：
+     ```
+        type Writer interface {
+           Write(p []byte) (n int, err error)
+        }
+     ```
+   - `fmt.Fprintf()` 依据指定的格式向第一个参数内写入字符串，第一个参数必须实现了 `io.Writer` 接口。
+   - `Fprintf()` 能够写入任何类型，只要其实现了 Write 方法，包括 `os.Stdout`，文件（例如 `os.File`），管道，网络连接，通道等等。同样地，也可以使用 bufio 包中缓冲写入。bufio 包中定义了 `type Writer struct{...}` 。
+   - `bufio.Writer` 实现了 `Write()` 方法：`func (b *Writer) Write(p []byte) (nn int, err error)`。
+   - 它还有一个工厂函数：传给它一个 `io.Writer` 类型的参数，它会返回一个带缓冲的 `bufio.Writer` 类型的 `io.Writer` ：`func NewWriter(wr io.Writer) (b *Writer)`，适合任何形式的缓冲写入。
+   - 在缓冲写入的最后千万不要忘了使用 `Flush()`，否则最后的输出不会被写入。

@@ -14,7 +14,7 @@ import (
 
 func main() {
 
-	demo.InitWikiPart1()
+	demo.InitRemove3Till5Char()
 	// var f float64 = 3.4
 	// v := reflect.TypeOf(f)
 	// v1 := reflect.ValueOf(&f)
