@@ -12,9 +12,30 @@ import (
 // 	Email string `json:"email"`
 // }
 
+// func protect(g func()) {
+// 	defer func() {
+// 		log.Println("done")
+// 		if err := recover(); err != nil {
+// 			log.Printf("run time panic: %v", err)
+// 		}
+// 	}()
+// 	log.Println("start")
+// 	g()
+// }
+
 func main() {
 
-	demo.InitHashSha1()
+	demo.InitPanicDefer()
+
+	// regexp.Compile()
+
+	// var f1 = func() {
+	// 	fmt.Println("哈哈哈，我要崩了")
+	// 	panic("错")
+	// }
+	// protect(f1)
+
+	// demo.InitHashSha1()
 	// var f float64 = 3.4
 	// v := reflect.TypeOf(f)
 	// v1 := reflect.ValueOf(&f)
