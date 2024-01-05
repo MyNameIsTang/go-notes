@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitPanicDefer()
+	demo.InitExec()
 
 	// regexp.Compile()
 

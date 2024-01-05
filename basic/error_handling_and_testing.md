@@ -161,6 +161,7 @@
    - 在包内部，特别是在非导出函数中有很深层次的嵌套调用时，将 panic 转换成 error 来告诉调用方为何出错，是很实用的（且提高了代码可读性）。
 
 5. 一种用闭包处理错误的模式
+
    - 结合 defer/panic/recover 机制和闭包可以得到一个更加优雅的模式。不过这个模式只有当所有的函数都是同一种签名时可用，这样就有相当大的限制。
    - 一个很好的使用它的例子是 web 应用，所有的处理函数都是下面这样：`func handler1(w http.ResponseWriter, r *http.Request) { ... }`。
    - 例如：
@@ -183,4 +184,152 @@
          ```
        - 当错误发生时会 recover 并打印在日志中；除了简单的打印，应用也可以用 template 包为用户生成自定义的输出。
        - 通过这种机制，所有的错误都会被 recover，并且调用函数后的错误检查代码也被简化为调用 `check(err)` 即可。在这种模式下，不同的错误处理必须对应不同的函数类型；它们（错误处理）可能被隐藏在错误处理包内部。可选的更加通用的方式是用一个空接口类型的切片作为参数和返回值。
-       - 
+
+6. 启动外部命令和程序
+
+   - os 包有一个 StartProcess 函数可以调用或启动外部系统命令和二进制可执行文件；它的第一个参数是要运行的进程，第二个参数用来传递选项或参数，第三个参数是含有系统环境基本信息的结构体。这个函数返回被启动进程的 id (pid)，或者启动失败返回错误。
+   - exec 包中也有同样功能的更简单的结构体和函数；主要是 `exec.Command(name string, arg ...string)` 和 `Run()`。首先需要用系统命令或可执行文件的名字创建一个 Command 对象，然后用这个对象作为接收者调用 `Run()`。
+
+7. Go 中的单元测试和基准测试
+
+   - 首先所有的包都应该有一定的必要文档，然后同样重要的是对包的测试。
+   - 名为 testing 的包被专门用来进行自动化测试，日志和错误报告。并且还包含一些基准测试函数的功能。
+   - gotest 是 Unix bash 脚本，所以在 Windows 下需要配置 MINGW 环境；在 Windows 环境下把所有的 pkg/linux_amd64 替换成 pkg/windows。
+   - 对一个包做（单元）测试，需要写一些可以频繁（每次更新后）执行的小块测试单元来检查代码的正确性。于是我们必须写一些 Go 源文件来测试代码。测试程序必须属于被测试的包，并且文件名满足这种形式 `*_test.go`，所以测试代码和包中的业务代码是分开的。
+   - `_test` 程序不会被普通的 Go 编译器编译，所以当放应用部署到生产环境时它们不会被部署；只有 gotest 会编译所有的程序：普通程序和测试程序。
+   - 测试文件中必须导入 "testing" 包，并写一些名字以 TestZzz 打头的全局函数，这里的 Zzz 是被测试函数的字母描述，如 `TestFmtInterface()`，`TestPayEmployees()` 等。
+   - 测试函数必须有这种形式的头部：`func TestAbcde(t *testing.T)`。
+   - T 是传给测试函数的结构类型，用来管理测试状态，支持格式化测试日志，如 `t.Log`，`t.Error`，`t.ErrorF` 等。在函数的结尾把输出跟想要的结果对比，如果不等就打印一个错误，成功的测试则直接返回。
+   - 下面这些函数来通知测试失败：
+     - 标记测试函数为失败，然后继续执行（剩下的测试）：`func (t *T) Fail()`。
+     - 标记测试函数为失败并中止执行；文件中别的测试也被略过，继续执行下一个文件：`func (t *T) FailNow()`。
+     - args 被用默认的格式格式化并打印到错误日志中：`func (t *T) Log(args ...interface{})`。
+     - 结合 先执行 Log，然后执行 FailNow 的效果：`func (t *T) Fatal(args ...interface{})`。
+   - 运行 go test 来编译测试程序，并执行程序中所有的 TestZZZ 函数。如果所有的测试都通过会打印出 PASS。
+   - gotest 可以接收一个或多个函数程序作为参数，并指定一些选项。
+   - 结合 `--chatty` 或 `-v` 选项，每个执行的测试函数以及测试状态会被打印。
+   - testing 包中有一些类型和函数可以用来做简单的基准测试；测试代码中必须包含以 BenchmarkZzz 打头的函数并接收一个 `*testing.B` 类型的参数，比如：`func BenchmarkReverse(b *testing.B) {}`。
+   - 命令 `go test –test.bench=.*` 会运行所有的基准测试函数；代码中的函数会被调用 N 次（N 是非常大的数，如 N = 1000000），并展示 N 的值和函数执行的平均时间，单位为 ns（纳秒，ns/op）。如果是用 `testing.Benchmark()` 调用这些函数，直接运行程序即可。
+
+8. 用（测试数据）表驱动测试
+
+   - 编写测试代码时，一个较好的办法是把测试的输入数据和期望的结果写在一起组成一个数据表：表中的每条记录都是一个含有输入和期望值的完整测试用例，有时还可以结合像测试名字这样的额外信息来让测试输出更多的信息。
+   - 实际测试时简单迭代表中的每条记录，并执行必要的测试。
+   - 可以抽象为下面的代码段：
+
+     ```
+       var tests = []struct{ 	// Test table
+         in  string
+         out string
+       }{
+         {"in1", "exp1"},
+         {"in2", "exp2"},
+         {"in3", "exp3"},
+       ...
+       }
+
+       func TestFunction(t *testing.T) {
+         for i, tt := range tests {
+           s := FuncToBeTested(tt.in)
+           if s != tt.out {
+             t.Errorf("%d. %q => %q, wanted: %q", i, tt.in, s, tt.out)
+           }
+         }
+       }
+
+     ```
+
+     - 如果大部分函数都可以写成这种形式，那么写一个帮助函数 verify() 对实际测试会很有帮助：
+       ```
+         func verify(t *testing.T, testnum int, testcase, input, output, expected string) {
+           if expected != output {
+             t.Errorf("%d. %s with input = %s: output %s != %s", testnum, testcase, input, output, expected)
+           }
+         }
+       ```
+     - `TestFunction()` 则变为：
+       ```
+         func TestFunction(t *testing.T) {
+           for i, tt := range tests {
+             s := FuncToBeTested(tt.in)
+             verify(t, i, "FuncToBeTested: ", tt.in, s, tt.out)
+           }
+         }
+       ```
+
+9. 性能调试：分析并优化 Go 程序
+
+   1. 时间和内存消耗
+      - 用这个便捷脚本 xtime 来测量：
+        ```
+          #!/bin/sh
+          /usr/bin/time -f '%Uu %Ss %er %MkB %C' "$@"
+        ```
+      - 在 Unix 命令行中像这样使用 `xtime goprogexec`，这里的 progexec 是一个 Go 可执行程序，这句命令行输出类似：56.63u 0.26s 56.92r 1642640kB progexec，分别对应用户时间，系统时间，实际时间和最大内存占用。
+   2. 用 go test 调试
+      - 如果代码使用了 Go 中 testing 包的基准测试功能，我们可以用 gotest 标准的 `-cpuprofile` 和 `-memprofile` 标志向指定文件写入 CPU 或 内存使用情况报告。
+      - 使用方式：`go test -x -v -cpuprofile=prof.out -file x_test.go`。
+      - 编译执行 x_test.go 中的测试，并向 prof.out 文件中写入 cpu 性能分析信息。
+   3. 用 pprof 调试
+
+      - 可以在单机程序 progexec 中引入 `runtime/pprof` 包；这个包以 pprof 可视化工具需要的格式写入运行时报告数据。对于 CPU 性能分析来说需要添加一些代码：
+
+        ```
+          var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+
+          func main() {
+            flag.Parse()
+            if *cpuprofile != "" {
+              f, err := os.Create(*cpuprofile)
+              if err != nil {
+                log.Fatal(err)
+              }
+              pprof.StartCPUProfile(f)
+              defer pprof.StopCPUProfile()
+            }
+            ...
+          }
+        ```
+
+        - 用这个 flag 运行程序：`progexec -cpuprofile=progexec.prof`
+        - 用 gopprof 工具：`gopprof progexec progexec.prof`
+        - gopprof 程序是 Google pprofC++ 分析器的一个轻微变种；关于此工具更多的信息，参见https://github.com/gperftools/gperftools 。
+        - 如果开启了 CPU 性能分析，Go 程序会以大约每秒 100 次的频率阻塞，并记录当前执行的 goroutine 栈上的程序计数器样本。
+        - 此工具一些有趣的命令：
+
+          - topN：用来展示分析结果中最开头的 N 份样本。
+          - web 或 web 函数名
+            - 该命令生成一份 SVG 格式的分析数据图表，并在网络浏览器中打开它（还有一个 gv 命令可以生成 PostScript 格式的数据，并在 GhostView 中打开，这个命令需要安装 graphviz）。函数被表示成不同的矩形（被调用越多，矩形越大），箭头指示函数调用链。
+          - list 函数名 或 weblist 函数名
+
+            - 展示对应函数名的代码行列表，第 2 列表示当前行执行消耗的时间，这样就很好地指出了运行过程中消耗最大的代码。
+            - 如果发现函数 `runtime.mallocgc`（分配内存并执行周期性的垃圾回收）调用频繁，那么是应该进行内存分析的时候了。找出垃圾回收频繁执行的原因，和内存大量分配的根源。
+            - 为了做到这一点必须在合适的地方添加下面的代码：
+
+              ```
+                var memprofile = flag.String("memprofile", "", "write memory profile to this file")
+                ...
+
+                CallToFunctionWhichAllocatesLotsOfMemory()
+                if *memprofile != "" {
+                  f, err := os.Create(*memprofile)
+                  if err != nil {
+                    log.Fatal(err)
+                  }
+                  pprof.WriteHeapProfile(f)
+                  f.Close()
+                  return
+                }
+              ```
+
+            - 用 `-memprofile flag` 运行这个程序：`progexec -memprofile=progexec.mprof`。
+            - 可以像这样再次使用 gopprof 工具：`gopprof progexec progexec.mprof`。
+            - top5，list 函数名 等命令同样适用，只不过现在是以 Mb 为单位测量内存分配情况。
+            - 有一个报告内存分配计数的有趣工具：`gopprof --inuse_objects progexec progexec.mprof`。
+            - 对于 web 应用来说，有标准的 HTTP 接口可以分析数据。在 HTTP 服务中添加：`import _ "http/pprof"`。
+            - 会为 /debug/pprof/ 下的一些 URL 安装处理器。然后可以用一个唯一的参数——服务中的分析数据的 URL 来执行 gopprof 命令——它会下载并执行在线分析。
+              ```
+                gopprof http://localhost:6060/debug/pprof/profile # 30-second CPU profile
+                gopprof http://localhost:6060/debug/pprof/heap # heap profile
+              ```
+            - 
