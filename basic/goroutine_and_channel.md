@@ -60,6 +60,7 @@
       - Go 协程比协程更强大，也很容易从协程的逻辑复用到 Go 协程。
 
 2. 协程间的信道
+
    1. 概念
       - 协程可以使用共享变量来通信，但是很不提倡这样做，因为这种方式给所有的共享内存的多线程都带来了困难。
       - Go 有一种特殊的类型，通道（channel），就像一个可以用于发送类型化数据的管道，由其负责协程之间的通信，从而避开所有由共享内存导致的陷阱；这种通过通道进行通信的方式保证了同步性。
@@ -85,3 +86,260 @@
           ```
         - 同一个操作符 <- 既用于发送也用于接收，但 Go 会根据操作对象弄明白该干什么 。
       - 虽非强制要求，但为了可读性通道的命名通常以 ch 开头或者包含 chan 。通道的发送和接收都是原子操作：它们总是互不干扰地完成。
+      - 运行时 (runtime) 会检查所有的协程是否在等待着什么东西（可从某个通道读取或者写入某个通道），这意味着程序将无法继续执行。这是死锁 (deadlock) 的一种形式，而运行时 (runtime) 可以为我们检测到这种情况。
+      - 不要使用打印状态来表明通道的发送和接收顺序：由于打印状态和通道实际发生读写的时间延迟会导致和真实发生的顺序不同。
+   3. 通道阻塞
+      - 默认情况下，通信是同步且无缓冲的：在有接受者接收数据之前，发送不会结束。
+      - 可以想象一个无缓冲的通道在没有空间来保存数据的时候：必须要一个接收者准备好接收通道的数据然后发送者可以直接把数据发送给接收者。所以通道的发送/接收操作在对方准备好之前是阻塞的：
+        - 对于同一个通道，发送操作（协程或者函数中的），在接收者准备好之前是阻塞的：如果 ch 中的数据无人接收，就无法再给通道传入其他数据：新的输入无法在通道非空的情况下传入。所以发送操作会等待 ch 再次变为可用状态：就是通道值被接收时（可以传入变量）。
+        - 对于同一个通道，接收操作是阻塞的（协程或函数中的），直到发送者可用：如果通道中没有数据，接收者就阻塞了。
+   4. 通过一个（或多个）通道交换数据进行协程同步。
+      - 通信是一种同步形式：通过通道，两个协程在通信（协程会合）中某刻同步交换数据。无缓冲通道成为了多个协程同步的完美工具。
+      - 甚至可以在通道两端互相阻塞对方，形成了叫做死锁的状态。Go 运行时会检查并 `panic()`，停止程序。死锁几乎完全是由糟糕的设计导致的。
+      - 无缓冲通道会被阻塞。设计无阻塞的程序可以避免这种情况，或者使用带缓冲的通道。
+   5. 同步通道-使用带缓冲的通道
+      - 一个无缓冲通道只能包含 1 个元素，有时显得很局限。给通道提供了一个缓存，可以在扩展的 make 命令中设置它的容量，如下：`ch1 := make(chan string, 100)`，第二个参数是通道可以同时容纳的元素（这里是 string）个数。
+      - 在缓冲满载（缓冲被全部使用）之前，给一个带缓冲的通道发送数据是不会阻塞的，而从通道读取数据也不会阻塞，直到缓冲空了。
+      - 缓冲容量和类型无关，所以可以（尽管可能导致危险）给一些通道设置不同的容量，只要他们拥有同样的元素类型。内置的 `cap()` 函数可以返回缓冲区的容量。
+      - 如果容量大于 0，通道就是异步的了：缓冲满载（发送）或变空（接收）之前通信不会阻塞，元素会按照发送的顺序被接收。如果容量是 0 或者未设置，通信仅在收发双方准备好的情况下才可以成功。
+      - 同步：ch :=make(chan type, value)
+        - `value == 0 -> synchronous`, unbuffered （阻塞）
+        - `value > 0 -> asynchronous`, buffered（非阻塞）取决于 value 元素
+      - 若使用通道的缓冲，你的程序会在“请求”激增的时候表现更好：更具弹性，专业术语叫：更具有伸缩性(scalable)。在设计算法时首先考虑使用无缓冲通道，只在不确定的情况下使用缓冲。
+   6. 协程中用通道输出结果
+      - 为了知道计算何时完成，可以通过信道回报。例：
+        ```
+           ch := make(chan int)
+           go sum(bigArray, ch)
+           sum := <-ch
+        ```
+      - 也可以使用通道来达到同步的目的，这个很有效的用法在传统计算机中称为信号量 (semaphore)。或者换个方式：通过通道发送信号告知处理已经完成（在协程中）。
+      - 在其他协程运行时让 main 程序无限阻塞的通常做法是在 `main()` 函数的最后放置一个 `select {}`。
+      - 也可以使用通道让 main 程序等待协程完成，就是所谓的信号量模式。
+   7. 信号量模式
+
+      - 协程通过在通道 ch 中放置一个值来处理结束的信号。`main()` 协程等待 `<-ch` 直到从中获取到值。
+      - 期望从这个通道中获取返回的结果，像这样：
+
+        ```
+           func compute(ch chan int){
+              ch <- someComputation() // when it completes, signal on the channel.
+           }
+
+           func main(){
+              ch := make(chan int) 	// allocate a channel.
+              go compute(ch)		// start something in a goroutines
+              doSomethingElseForAWhile()
+              result := <- ch
+           }
+        ```
+
+      - 这个信号也可以是其他的，不返回结果，比如下面这个协程中的匿名函数 (lambda) 协程：
+        ```
+           ch := make(chan int)
+           go func(){
+              // doSomething
+              ch <- 1 // Send a signal; value does not matter
+           }()
+           doSomethingElseForAWhile()
+           <- ch	// Wait for goroutine to finish; discard sent value.
+        ```
+      - 或者等待两个协程完成，每一个都会对切片 s 的一部分进行排序，片段如下：
+        ```
+            done := make(chan bool)
+            // doSort is a lambda function, so a closure which knows the channel done:
+            doSort := func(s []int){
+               sort(s)
+               done <- true
+            }
+            i := pivot(s)
+            go doSort(s[:i])
+            go doSort(s[i:])
+            <-done
+            <-done
+        ```
+      - 用完整的信号量模式对长度为 N 的 float64 切片进行了 N 个 `doSomething()` 计算并同时完成，通道 sem 分配了相同的长度（且包含空接口类型的元素），待所有的计算都完成后，发送信号（通过放入值）。在循环中从通道 sem 不停的接收数据来等待所有的协程完成。
+        ```
+           type Empty interface {}
+           var empty Empty
+           ...
+           data := make([]float64, N)
+           res := make([]float64, N)
+           sem := make(chan Empty, N)
+           ...
+           for i, xi := range data {
+              go func (i int, xi float64) {
+                 res[i] = doSomething(i, xi)
+                 sem <- empty
+              } (i, xi)
+           }
+           // wait for goroutines to finish
+           for i := 0; i < N; i++ { <-sem }
+        ```
+
+   8. 实现并行的 for 循环
+      - for 循环的每一个迭代是并行完成的：
+        ```
+           for i, v := range data {
+              go func (i int, v float64) {
+                 doSomething(i, v)
+                 ...
+              } (i, v)
+           }
+        ```
+      - 在 for 循环中并行计算迭代可能带来很好的性能提升。不过所有的迭代都必须是独立完成的。
+   9. 用带缓冲通道实现一个信号量
+
+      - 信号量是实现互斥锁（排外锁）常见的同步机制，限制对资源的访问，解决读写问题，比如没有实现信号量的 sync 的 Go 包，使用带缓冲的通道可以轻松实现：
+        - 带缓冲通道的容量和要同步的资源容量相同
+        - 通道的长度（当前存放的元素个数）与当前资源被使用的数量相同
+        - 容量减去通道的长度就是未处理的资源个数（标准信号量的整数值）
+      - 不用管通道中存放的是什么，只关注长度；因此我们创建了一个长度可变但容量为 0（字节）的通道：
+        ```
+           type Empty interface {}
+           type semaphore chan Empty
+        ```
+      - 将可用资源的数量 N 来初始化信号量 `semaphore：sem = make(semaphore, N)`
+      - 然后直接对信号量进行操作：
+
+        ```
+           // acquire n resources
+           func (s semaphore) P(n int) {
+              e := new(Empty)
+              for i := 0; i < n; i++ {
+                 s <- e
+              }
+           }
+
+           // release n resources
+           func (s semaphore) V(n int) {
+              for i:= 0; i < n; i++{
+                 <- s
+              }
+           }
+        ```
+
+      - 可以用来实现一个互斥的例子：
+
+        ```
+           /* mutexes */
+           func (s semaphore) Lock() {
+              s.P(1)
+           }
+
+           func (s semaphore) Unlock(){
+              s.V(1)
+           }
+
+           /* signal-wait */
+           func (s semaphore) Wait(n int) {
+              s.P(n)
+           }
+
+           func (s semaphore) Signal() {
+              s.V(1)
+           }
+        ```
+
+      - **习惯用法：通道工厂模式**
+        - 编程中常见的另外一种模式如下：不将通道作为参数传递给协程，而用函数来生成一个通道并返回（工厂角色）；函数内有个匿名函数被协程调用。
+        ```
+            func pump() chan int {
+               ch := make(chan int)
+               go func() {
+                  for i := 0; ; i++ {
+                     ch <- i
+                  }
+               }()
+               return ch
+            }
+        ```
+
+   10. 给通道使用 for 循环
+
+       - for 循环的 range 语句可以用在通道 ch 上，便可以从通道中获取值，像这样：
+
+         ```
+            for v := range ch {
+               fmt.Printf("The value is %v\n", v)
+            }
+         ```
+
+       - 它从指定通道中读取数据直到通道关闭，才继续执行下边的代码。很明显，另外一个协程必须写入 ch（不然代码就阻塞在 for 循环了），而且必须在写入完成后才关闭。
+
+         ```
+            func suck(ch chan int) {
+               go func() {
+                  for v := range ch {
+                     fmt.Println(v)
+                  }
+               }()
+            }
+         ```
+
+       - **习惯用法：通道迭代器模式**
+         - 通常，需要从包含了地址索引字段 items 的容器给通道填入元素。为容器的类型定义一个方法 `Iter()`，返回一个只读的通道 items：
+           ```
+              func (c *container) Iter () <- chan item {
+                 ch := make(chan item)
+                 go func () {
+                    for i:= 0; i < c.Len(); i++{	// or use a for-range loop
+                       ch <- c.items[i]
+                    }
+                 } ()
+                 return ch
+              }
+           ```
+         - 在协程里，一个 for 循环迭代容器 c 中的元素（对于树或图的算法，这种简单的 for 循环可以替换为深度优先搜索）。
+         - 调用这个方法的代码可以这样迭代容器：`for x := range container.Iter() { ... }`。
+         - 其运行在自己启动的协程中，所以上边的迭代用到了一个通道和两个协程（可能运行在不同的线程上）。 这样我们就有了一个典型的生产者-消费者模式。
+         - 如果在程序结束之前，向通道写值的协程未完成工作，则这个协程不会被垃圾回收；这是设计使然。这种看起来并不符合预期的行为正是由通道这种线程安全的通信方式所导致的。如此一来，一个协程为了写入一个永远无人读取的通道而被挂起就成了一个 bug ，而并非预想中的那样被悄悄回收掉 (garbage-collected) 了。
+       - **习惯用法：生产者消费者模式**
+         - 假设有 Produce() 函数来产生 Consume() 函数需要的值。它们都可以运行在独立的协程中，生产者在通道中放入给消费者读取的值。整个处理过程可以替换为无限循环：
+           ```
+              for {
+                 Consume(Produce())
+              }
+           ```
+
+   11. 通道的方向
+
+       - 通道类型可以用注解来表示它只发送或者只接收：
+         - 只能发送：`var send_only chan<- int`
+         - 只能接收：`var recv_only <-chan int`
+       - 只接收的通道 (`<-chan T`) 无法关闭，因为关闭通道是发送者用来表示不再给通道发送值了，所以对只接收通道是没有意义的。
+       - 通道创建的时候都是双向的，但也可以分配给有方向的通道变量：
+
+         ```
+            var c = make(chan int) // bidirectional
+            go source(c)
+            go sink(c)
+
+            func source(ch chan<- int){
+               for { ch <- 1 }
+            }
+
+            func sink(ch <-chan int) {
+               for { <-ch }
+            }
+         ```
+
+       - **习惯用法：管道和选择器模式**
+
+         - 协程处理它从通道接收的数据并发送给输出通道：
+
+           ```
+              sendChan := make(chan int)
+              receiveChan := make(chan string)
+              go processChannel(sendChan, receiveChan)
+
+              func processChannel(in <-chan int, out chan<- string) {
+                 for inValue := range in {
+                    result := ... /// processing inValue
+                    out <- result
+                 }
+              }
+           ```
+
+         - 通过使用方向注解来限制协程对通道的操作。
+         

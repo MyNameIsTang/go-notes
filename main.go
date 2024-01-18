@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.Initgoroutine1()
+	demo.InitSieve2()
 
 	// regexp.Compile()
 
