@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitSieve2()
+	demo.InitRandomBitgen()
 
 	// regexp.Compile()
 
