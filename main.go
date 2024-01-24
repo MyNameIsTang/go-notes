@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitRandomBitgen()
+	demo.InitConcurrentPi2()
 
 	// regexp.Compile()
 
