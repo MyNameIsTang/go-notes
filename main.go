@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitConcurrentPi2()
+	demo.InitTimerGoroutine()
 
 	// regexp.Compile()
 

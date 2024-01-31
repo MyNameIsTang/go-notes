@@ -14,7 +14,7 @@
       - 一个并发程序可以在一个处理器或者内核上使用多个线程来执行任务，但是只有同一个程序在某个时间点同时运行在多核或者多处理器上才是真正的并行。
       - 并行是一种通过使用多处理器以提高速度的能力。所以并发程序可以是并行的，也可以不是。
       - 公认的，使用多线程的应用难以做到准确，最主要的问题是内存中的数据共享，它们会被多线程以无法预知的方式进行操作，导致一些无法重现或者随机的结果（称作竞态）。
-      - **不要使用全局变量或者共享内存，它们会给你的代码在并发运算的时候带来危险**。
+      - **不要使用全局变量或者共享内存，它们会给代码在并发运算的时候带来危险**。
       - 解决之道在于同步不同的线程，对数据加锁，这样同时就只有一个线程可以变更数据。在 Go 的标准库 sync 中有一些工具用来在低级别的代码中实现加锁；不过过去的软件开发经验告诉我们这会带来更高的复杂度，更容易使代码出错以及更低的性能，所以这个经典的方法明显不再适合现代多核/多处理器编程：`thread-per-connection` 模型不够有效。
       - Go 更倾向于其他的方式，在诸多比较合适的范式中，有个被称作 `Communicating Sequential Processes`（顺序通信处理）（CSP, C. Hoare 发明的）还有一个叫做 `message passing-model`（消息传递）（已经运用在了其他语言中，比如 Erlang）。
       - 在 Go 中，应用程序并发处理的部分被称作 goroutines（协程），它可以进行更有效的并发运算。在协程和操作系统线程之间并无一对一的关系：协程是根据一个或多个线程的可用性，映射（多路复用，执行于）在他们之上的；协程调度器在 Go 运行时很好的完成了这个工作。
@@ -33,10 +33,10 @@
       - 必须使用 GOMAXPROCS 变量。这会告诉运行时有多少个协程同时执行。
       - 并且只有 gc 编译器真正实现了协程，适当的把协程映射到操作系统线程。使用 gccgo 编译器，会为每一个协程创建操作系统线程。
    3. 使用 GOMAXPROCS
-      - 在 gc 编译器下（6g 或者 8g）你必须设置 GOMAXPROCS 为一个大于默认值 1 的数值来允许运行时支持使用多于 1 个的操作系统线程，所有的协程都会共享同一个线程除非将 GOMAXPROCS 设置为一个大于 1 的数。
+      - 在 gc 编译器下（6g 或者 8g）必须设置 GOMAXPROCS 为一个大于默认值 1 的数值来允许运行时支持使用多于 1 个的操作系统线程，所有的协程都会共享同一个线程除非将 GOMAXPROCS 设置为一个大于 1 的数。
       - 当 GOMAXPROCS 大于 1 时，会有一个线程池管理许多的线程。
       - 通过 gccgo 编译器 GOMAXPROCS 有效的与运行中的协程数量相等。
-      - 假设 n 是机器上处理器或者核心的数量。如果你设置环境变量 `GOMAXPROCS>=n`，或者执行 `runtime.GOMAXPROCS(n)`，接下来协程会被分割（分散）到 n 个处理器上。更多的处理器并不意味着性能的线性提升。
+      - 假设 n 是机器上处理器或者核心的数量。如果设置环境变量 `GOMAXPROCS>=n`，或者执行 `runtime.GOMAXPROCS(n)`，接下来协程会被分割（分散）到 n 个处理器上。更多的处理器并不意味着性能的线性提升。
       - 有这样一个经验法则，对于 n 个核心的情况设置 GOMAXPROCS 为 n-1 以获得最佳性能，也同样需要遵守这条规则：协程的数量 > 1 + GOMAXPROCS > 1。
       - 所以如果在某一时间只有一个协程在执行，不要设置 GOMAXPROCS！
       - 还有一些通过实验观察到的现象：在一台 1 颗 CPU 的笔记本电脑上，增加 GOMAXPROCS 到 9 会带来性能提升。在一台 32 核的机器上，设置 `GOMAXPROCS=8` 会达到最好的性能，在测试环境中，更高的数值无法提升性能。如果设置一个很大的 GOMAXPROCS 只会带来轻微的性能下降；设置 `GOMAXPROCS=100`，使用 top 命令和 H 选项查看到只有 7 个活动的线程。
@@ -51,7 +51,7 @@
         ```
       - 协程可以通过调用 `runtime.Goexit()` 来停止，尽管这样做几乎没有必要。
       - 当 `main()` 函数返回的时候，程序退出：它不会等待任何其他非 main 协程的结束。这就是为什么在服务器程序中，每一个请求都会启动一个协程来处理，`server()` 函数必须保持运行状态。通常使用一个无限循环来达到这样的目的。
-      - 另外，协程是独立的处理单元，一旦陆续启动一些协程，你无法确定他们是什么时候真正开始执行的。你的代码逻辑必须独立于协程调用的顺序。
+      - 另外，协程是独立的处理单元，一旦陆续启动一些协程，无法确定他们是什么时候真正开始执行的。的代码逻辑必须独立于协程调用的顺序。
       - 协程更有用的一个例子应该是在一个非常长的数组中查找一个元素。将数组分割为若干个不重复的切片，然后给每一个切片启动一个协程进行查找计算。这样许多并行的协程可以用来进行查找任务，整体的查找时间会缩短（除以协程的数量）。
    5. Go 协程 (goroutines) 和协程 (coroutines)
       - 在其他语言中，比如 C#，Lua 或者 Python 都有协程的概念。这个名字表明它和 Go 协程有些相似，不过有两点不同：
@@ -105,7 +105,7 @@
       - 同步：ch :=make(chan type, value)
         - `value == 0 -> synchronous`, unbuffered （阻塞）
         - `value > 0 -> asynchronous`, buffered（非阻塞）取决于 value 元素
-      - 若使用通道的缓冲，你的程序会在“请求”激增的时候表现更好：更具弹性，专业术语叫：更具有伸缩性(scalable)。在设计算法时首先考虑使用无缓冲通道，只在不确定的情况下使用缓冲。
+      - 若使用通道的缓冲，程序会在“请求”激增的时候表现更好：更具弹性，专业术语叫：更具有伸缩性(scalable)。在设计算法时首先考虑使用无缓冲通道，只在不确定的情况下使用缓冲。
    6. 协程中用通道输出结果
       - 为了知道计算何时完成，可以通过信道回报。例：
         ```
@@ -388,9 +388,10 @@
          ```
    - **阻塞和生产者-消费者模式**：
      - 两个协程经常是一个阻塞另外一个。如果程序工作在多核心的机器上，大部分时间只用到了一个处理器。可以通过使用带缓冲（缓冲空间大于 0）的通道来改善。比如，缓冲大小为 100，迭代器在阻塞之前，至少可以从容器获得 100 个元素。如果消费者协程在独立的内核运行，就有可能让协程不会出现阻塞。
-     - 由于容器中元素的数量通常是已知的，需要让通道有足够的容量放置所有的元素。这样，迭代器就不会阻塞（尽管消费者协程仍然可能阻塞）。然而，这实际上加倍了迭代容器所需要的内存使用量，所以通道的容量需要限制一下最大值。记录运行时间和性能测试可以帮助你找到最小的缓存容量带来最好的性能。
+     - 由于容器中元素的数量通常是已知的，需要让通道有足够的容量放置所有的元素。这样，迭代器就不会阻塞（尽管消费者协程仍然可能阻塞）。然而，这实际上加倍了迭代容器所需要的内存使用量，所以通道的容量需要限制一下最大值。记录运行时间和性能测试可以帮助找到最小的缓存容量带来最好的性能。
 
 4. 使用 select 切换协程
+
    - 从不同的并发执行的协程中获取值可以通过关键字 select 来完成，它和 switch 控制语句非常相似也被称作通信开关；它的行为像是“你准备好了吗”的轮询机制；select 监听进入通道的数据，也可以是用通道发送值的时候。
      ```
         select {
@@ -410,4 +411,267 @@
      - 如果没有通道操作可以处理并且写了 default 语句，它就会执行：default 永远是可运行的（这就是准备好了，可以执行）。
    - 在 select 中使用发送操作并且有 default 可以确保发送不被阻塞！如果没有 default，select 就会一直阻塞。
    - select 语句实现了一种监听模式，通常用在（无限）循环中；在某种情况下，通过 break 语句使循环退出。
-   - 
+   - **习惯用法：后台服务模式**
+     - 服务通常是是用后台协程中的无限循环实现的，在循环中使用 select 获取并处理通道中的数据：
+       ```
+          // Backend goroutine.
+          func backend() {
+             for {
+                select {
+                case cmd := <-ch1:
+                   // Handle ...
+                case cmd := <-ch2:
+                   ...
+                case cmd := <-chStop:
+                   // stop server
+                }
+             }
+          }
+       ```
+       - 在程序的其他地方给通道 ch1，ch2 发送数据，比如：通道 stop 用来清理结束服务程序。
+     - 另一种方式（但是不太灵活）就是（客户端）在 chRequest 上提交请求，后台协程循环这个通道，使用 switch 根据请求的行为来分别处理：
+       ```
+          func backend() {
+             for req := range chRequest {
+                switch req.Subjext() {
+                   case A1:  // Handle case ...
+                   case A2:  // Handle case ...
+                   default:
+                   // Handle illegal request ..
+                   // ...
+                }
+             }
+          }
+       ```
+
+5. 通道、超时和计时器（Ticker）
+
+   - time 包中有一些有趣的功能可以和通道组合使用。
+   - 其中就包含了 `time.Ticker` 结构体，这个对象以指定的时间间隔重复的向通道 C 发送时间值：
+     ```
+        type Ticker struct {
+           C <-chan Time // the channel on which the ticks are delivered.
+           // contains filtered or unexported fields
+           ...
+        }
+     ```
+   - 时间间隔的单位是 ns（纳秒，int64），在工厂函数 `time.NewTicker` 中以 Duration 类型的参数传入：`func NewTicker(dur) *Ticker`。
+   - 在协程周期性的执行一些事情（打印状态日志，输出，计算等等）的时候非常有用。
+   - 调用 `Stop()` 使计时器停止，在 defer 语句中使用。这些都很好地适应 select 语句:
+     ```
+        ticker := time.NewTicker(updateInterval)
+        defer ticker.Stop()
+        ...
+        select {
+        case u:= <-ch1:
+           ...
+        case v:= <-ch2:
+           ...
+        case <-ticker.C:
+           logState(status) // call some logging function logState
+        default: // no value ready to be received
+           ...
+        }
+     ```
+   - `time.Tick()` 函数声明为 `Tick(d Duration) <-chan Time`，当想返回一个通道而不必关闭它的时候这个函数非常有用：它以 d 为周期给返回的通道发送时间，d 是纳秒数。
+   - 像下边的代码一样，可以限制处理频率（函数 `client.Call()` 是一个 RPC 调用：
+
+     ```
+        import "time"
+
+        rate_per_sec := 10
+        var dur Duration = 1e9 / rate_per_sec
+        chRate := time.Tick(dur) // a tick every 1/10th of a second
+        for req := range requests {
+           <- chRate // rate limit our Service.Method RPC calls
+           go client.Call("Service.Method", req, ...)
+        }
+     ```
+
+     - 这样只会按照指定频率处理请求：chRate 阻塞了更高的频率。每秒处理的频率可以根据机器负载（和/或）资源的情况而增加或减少。
+     - 定时器 (Timer) 结构体看上去和计时器 (Ticker) 结构体的确很像（构造为 `NewTimer(d Duration)`），但是它只发送一次时间，在 `Dration d` 之后。
+       - 还有 `time.After(d)` 函数，声明如下：`func After(d Duration) <-chan Time`。
+       - 在 `Duration d` 之后，当前时间被发到返回的通道；所以它和 `NewTimer(d).C` 是等价的；它类似 `Tick()`，但是 `After()` 只发送一次时间。
+
+   - **习惯用法：简单超时模式**
+     - 要从通道 ch 中接收数据，但是最多等待 1 秒。先创建一个信号通道，然后启动一个 lambda 协程，协程在给通道发送数据之前是休眠的：
+       ```
+          timeout := make(chan bool, 1)
+          go func() {
+                time.Sleep(1e9) // one second
+                timeout <- true
+          }()
+       ```
+     - 然后使用 select 语句接收 ch 或者 timeout 的数据：如果 ch 在 1 秒内没有收到数据，就选择到了 time 分支并放弃了 ch 的读取。
+       ```
+          select {
+             case <-ch:
+                // a read from ch has occured
+             case <-timeout:
+                // the read from ch has timed out
+                break
+          }
+       ```
+     - 第二种形式：取消耗时很长的同步调用
+       - 可以使用 `time.After()` 函数替换 timeout-channel
+       - 在 select 中通过 `time.After()` 发送的超时信号来停止协程的执行。
+       - 在 timeoutNs 纳秒后执行 select 的 timeout 分支后，执行 `client.Call`的协程也随之结束，不会给通道 ch 返回值：
+         ```
+            ch := make(chan error, 1)
+            go func() { ch <- client.Call("Service.Method", args, &reply) } ()
+            select {
+            case resp := <-ch
+               // use resp and reply
+            case <-time.After(timeoutNs):
+               // call timed out
+               break
+            }
+         ```
+       - 注意缓冲大小设置为 1 是必要的，可以避免协程死锁以及确保超时的通道可以被垃圾回收。
+       - 此外，需要注意在有多个 case 符合条件时， select 对 case 的选择是伪随机的，如果上面的代码稍作修改如下，则 select 语句可能不会在定时器超时信号到来时立刻选中 time.After(timeoutNs) 对应的 case，因此协程可能不会严格按照定时器设置的时间结束。
+         ```
+            ch := make(chan int, 1)
+            go func() { for { ch <- 1 } } ()
+            L:
+            for {
+               select {
+               case <-ch:
+                  // do something
+               case <-time.After(timeoutNs):
+                  // call timed out
+                  break L
+               }
+            }
+         ```
+     - 第三种形式：假设程序从多个复制的数据库同时读取。只需要一个答案，需要接收首先到达的答案，Query 函数获取数据库的连接切片并请求。并行请求每一个数据库并返回收到的第一个响应：
+       ```
+          func Query(conns []Conn, query string) Result {
+             ch := make(chan Result, 1)
+             for _, conn := range conns {
+                go func(c Conn) {
+                      select {
+                      case ch <- c.DoQuery(query):
+                      default:
+                      }
+                }(conn)
+             }
+             return <- ch
+          }
+       ```
+       - 结果通道 ch 必须是带缓冲的：以保证第一个发送进来的数据有地方可以存放，确保放入的首个数据总会成功，所以第一个到达的值会被获取而与执行的顺序无关。正在执行的协程可以总是可以使用 `runtime.Goexit()` 来停止。
+     - 在应用中缓存数据：
+       - 应用程序中用到了来自数据库（或者常见的数据存储）的数据时，经常会把数据缓存到内存中，因为从数据库中获取数据的操作代价很高；
+       - 如果数据库中的值不发生变化就没有问题。但是如果值有变化，我们需要一个机制来周期性的从数据库重新读取这些值：缓存的值就不可用（过期）了，而且我们也不希望用户看到陈旧的数据。
+
+6. 协程和回复（recover）
+
+   - 一个用到 `recover()` 的程序
+
+     ```
+        func server(workChan <-chan *Work) {
+           for work := range workChan {
+              go safelyDo(work)   // start the goroutine for that work
+           }
+        }
+
+        func safelyDo(work *Work) {
+           defer func() {
+              if err := recover(); err != nil {
+                    log.Printf("Work failed with %s in %v", err, work)
+              }
+           }()
+           do(work)
+        }
+     ```
+
+     - 如果 `do(work)` 发生 `panic()`，错误会被记录且协程会退出并释放，而其他协程不受影响。
+
+   - 因为 `recover()` 总是返回 nil，除非直接在 defer 修饰的函数中调用，defer 修饰的代码可以调用那些自身可以使用 `panic()` 和 `recover()` 避免失败的库例程（库函数）。
+
+7. 新旧模型对比：任务和 worker
+
+   - 假设我们需要处理很多任务；一个 worker 处理一项任务。
+     ```
+        type Task struct {
+           // some state
+        }
+     ```
+   - 旧模式：使用共享内存进行同步
+
+     - 由各个任务组成的任务池共享内存；为了同步各个 worker 以及避免资源竞争，我们需要对任务池进行加锁保护：
+       ```
+         type Pool struct {
+            Mu      sync.Mutex
+            Tasks   []*Task
+         }
+       ```
+       - `sync.Mutex` 是互斥锁：它用来在代码中保护临界区资源：同一时间只有一个 go 协程 (goroutine) 可以进入该临界区。如果出现了同一时间多个 go 协程都进入了该临界区，则会产生竞争：Pool 结构就不能保证被正确更新。
+     - 在传统的模式中（经典的面向对象的语言中应用得比较多，比如 C++，JAVA，C#），worker 代码可能这样写：
+       ```
+          func Worker(pool *Pool) {
+             for {
+                pool.Mu.Lock()
+                // begin critical section:
+                task := pool.Tasks[0]        // take the first task
+                pool.Tasks = pool.Tasks[1:]  // update the pool of tasks
+                // end critical section
+                pool.Mu.Unlock()
+                process(task)
+             }
+          }
+       ```
+     - 这些 worker 有许多都可以并发执行；他们可以在 go 协程中启动。
+     - 加锁保证了同一时间只有一个 go 协程可以进入到 pool 中：一项任务有且只能被赋予一个 worker 。
+     - 如果不加锁，则工作协程可能会在 `task:=pool.Tasks[0]` 发生切换，导致 `pool.Tasks=pool.Tasks[1:]` 结果异常：一些 worker 获取不到任务，而一些任务可能被多个 worker 得到。
+     - 加锁实现同步的方式在工作协程比较少时可以工作得很好，但是当工作协程数量很大，任务量也很多时，处理效率将会因为频繁的加锁/解锁开销而降低。
+     - 当工作协程数增加到一个阈值时，程序效率会急剧下降，这就成为了瓶颈。
+
+   - 新模式：使用通道
+
+     - 使用通道进行同步：使用一个通道接受需要处理的任务，一个通道接受处理完成的任务（及其结果）。worker 在协程中启动，其数量 N 应该根据任务数量进行调整。
+     - 主线程扮演着 Master 节点角色，可能写成如下形式：
+       ```
+         func main() {
+            pending, done := make(chan *Task), make(chan *Task)
+            go sendWork(pending)       // put tasks with work on the channel
+            for i := 0; i < N; i++ {   // start N goroutines to do work
+               go Worker(pending, done)
+            }
+            consumeWork(done)          // continue with the processed tasks
+         }
+       ```
+     - worker 的逻辑比较简单：从 pending 通道拿任务，处理后将其放到 done 通道中：
+       ```
+         func Worker(in, out chan *Task) {
+            for {
+               t := <-in
+               process(t)
+               out <- t
+            }
+         }
+       ```
+       - 这里并不使用锁：从通道得到新任务的过程没有任何竞争。
+       - 随着任务数量增加，worker 数量也应该相应增加，同时性能并不会像第一种方式那样下降明显。
+       - 在 pending 通道中存在一份任务的拷贝，第一个 worker 从 pending 通道中获得第一个任务并进行处理，这里并不存在竞争（对一个通道读数据和写数据的整个过程是原子性的）。
+       - 某一个任务会在哪一个 worker 中被执行是不可知的，反过来也是。worker 数量的增多也会增加通信的开销，这会对性能有轻微的影响。
+     - 第二种模式对比第一种模式而言，不仅性能是一个主要优势，而且还有个更大的优势：代码显得更清晰、更优雅。
+     - 对于任何可以建模为 Master-Worker 范例的问题，一个类似于 worker 使用通道进行通信和交互、Master 进行整体协调的方案都能完美解决。如果系统部署在多台机器上，各个机器上执行 Worker 协程，Master 和 Worker 之间使用 netchan 或者 RPC 进行通信。
+
+   - 怎么选择是该使用锁还是通道？普遍的经验法则：
+     - 使用锁的情景：
+       - 访问共享数据结构中的缓存信息
+       - 保存应用程序上下文和状态信息数据
+     - 使用通道的情景：
+       - 与异步操作的结果进行交互
+       - 分发任务
+       - 传递数据所有权
+     - 当发现锁使用规则变得很复杂时，可以反省使用通道会不会使问题变得简单些。
+
+8. 惰性生成器的实现
+   - 生成器是指当被调用时返回一个序列中下一个值的函数，例如：
+     ```
+        generateInteger() => 0
+        generateInteger() => 1
+        generateInteger() => 2
+     ```
+   - 生成器每次返回的是序列中下一个值而非整个序列；这种特性也称之为惰性求值：只在你需要时进行求值，同时保留相关变量资源（内存和 CPU）：这是一项在需要时对表达式进行求值的技术。
