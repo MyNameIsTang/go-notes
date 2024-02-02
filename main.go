@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitTimerGoroutine()
+	demo.InitMultipleServer()
 
 	// regexp.Compile()
 

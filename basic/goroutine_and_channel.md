@@ -668,6 +668,7 @@
      - 当发现锁使用规则变得很复杂时，可以反省使用通道会不会使问题变得简单些。
 
 8. 惰性生成器的实现
+
    - 生成器是指当被调用时返回一个序列中下一个值的函数，例如：
      ```
         generateInteger() => 0
@@ -675,3 +676,48 @@
         generateInteger() => 2
      ```
    - 生成器每次返回的是序列中下一个值而非整个序列；这种特性也称之为惰性求值：只在你需要时进行求值，同时保留相关变量资源（内存和 CPU）：这是一项在需要时对表达式进行求值的技术。
+   - 有一个细微的区别是从通道读取的值可能会是稍早前产生的，并不是在程序被调用时生成的。如果确实需要这样的行为，就得实现一个请求响应机制。
+   - 当生成器生成数据的过程是计算密集型且各个结果的顺序并不重要时，那么就可以将生成器放入到 go 协程实现并行化。但是得小心，使用大量的 go 协程的开销可能会超过带来的性能增益。
+
+9. 实现 Futures 模式
+
+   - 所谓 Futures 就是指：有时候在使用某一个值之前需要先对其进行计算。这种情况下，可以在另一个处理器上进行该值的计算，到使用时，该值就已经计算完毕了。
+   - Futures 模式通过闭包和通道可以很容易实现，类似于生成器，不同地方在于 Futures 需要返回一个值。
+   - 假设我们有一个矩阵类型，我们需要计算两个矩阵 A 和 B 乘积的逆，首先我们通过函数 `Inverse(M)` 分别对其进行求逆运算，再将结果相乘。
+     ```
+        func InverseProduct(a Matrix, b Matrix) {
+           a_inv := Inverse(a)
+           b_inv := Inverse(b)
+           return Product(a_inv, b_inv)
+        }
+     ```
+     - 调用 `Product()` 函数只需要等到 a_inv 和 b_inv 的计算完成。
+       ```
+         func InverseProduct(a Matrix, b Matrix) {
+            a_inv_future := InverseFuture(a)   // start as a goroutine
+            b_inv_future := InverseFuture(b)   // start as a goroutine
+            a_inv := <-a_inv_future
+            b_inv := <-b_inv_future
+            return Product(a_inv, b_inv)
+         }
+       ```
+     - `InverseFuture()` 函数以 goroutine 的形式起了一个闭包，该闭包会将矩阵求逆结果放入到 future 通道中：
+       ```
+         func InverseFuture(a Matrix) chan Matrix {
+            future := make(chan Matrix)
+            go func() {
+               future <- Inverse(a)
+            }()
+            return future
+         }
+       ```
+   - 当开发一个计算密集型库时，使用 Futures 模式设计 API 接口是很有意义的。在你的包使用 Futures 模式，且能保持友好的 API 接口。此外，Futures 可以通过一个异步的 API 暴露出来。这样你可以以最小的成本将包中的并行计算移到用户代码中。
+
+10. 复用
+    1. 典型的客户端/服务器（C/S）模式
+       - 客户端-服务器应用正是 goroutines 和 channels 的亮点所在。
+       - 客户端 (Client) 可以是运行在任意设备上的任意程序，它会按需发送请求 (request) 至服务器。服务器 (Server) 接收到这个请求后开始相应的工作，然后再将响应 (response) 返回给客户端。
+       - 典型情况下一般是多个客户端（即多个请求）对应一个（或少量）服务器。例如我们日常使用的浏览器客户端，其功能就是向服务器请求网页。而 Web 服务器则会向浏览器响应网页数据。
+       - 使用 Go 的服务器通常会在协程中执行向客户端的响应，故而会对每一个客户端请求启动一个协程。一个常用的操作方法是客户端请求自身中包含一个通道，而服务器则向这个通道发送响应。
+    2. 卸载 (Teardown)：通过信号通道关闭服务器
+       - 
