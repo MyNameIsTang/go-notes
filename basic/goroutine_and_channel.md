@@ -714,10 +714,132 @@
    - 当开发一个计算密集型库时，使用 Futures 模式设计 API 接口是很有意义的。在你的包使用 Futures 模式，且能保持友好的 API 接口。此外，Futures 可以通过一个异步的 API 暴露出来。这样你可以以最小的成本将包中的并行计算移到用户代码中。
 
 10. 复用
+
     1. 典型的客户端/服务器（C/S）模式
        - 客户端-服务器应用正是 goroutines 和 channels 的亮点所在。
        - 客户端 (Client) 可以是运行在任意设备上的任意程序，它会按需发送请求 (request) 至服务器。服务器 (Server) 接收到这个请求后开始相应的工作，然后再将响应 (response) 返回给客户端。
        - 典型情况下一般是多个客户端（即多个请求）对应一个（或少量）服务器。例如我们日常使用的浏览器客户端，其功能就是向服务器请求网页。而 Web 服务器则会向浏览器响应网页数据。
        - 使用 Go 的服务器通常会在协程中执行向客户端的响应，故而会对每一个客户端请求启动一个协程。一个常用的操作方法是客户端请求自身中包含一个通道，而服务器则向这个通道发送响应。
     2. 卸载 (Teardown)：通过信号通道关闭服务器
-       - 
+
+11. 限制同时处理的请求数
+
+    - 使用带缓冲区的通道很容易实现这一点，其缓冲区容量就是同时处理请求的最大数量。
+    - 通过这种方式，应用程序可以通过使用缓冲通道（通道被用作信号量）使协程同步其对该资源的使用，从而充分利用有限的资源（如内存）。
+
+12. 链式协程
+
+13. 在多核心上并行计算
+
+    - 假设有 NCPU 个 CPU 核心：const NCPU = 4 //对应一个四核处理器 然后想把计算量分成 NCPU 个部分，每一个部分都和其他部分并行运行
+
+      ```
+         func DoAll(){
+            sem := make(chan int, NCPU) // Buffering optional but sensible
+            for i := 0; i < NCPU; i++ {
+               go DoPart(sem)
+            }
+            // Drain the channel sem, waiting for NCPU tasks to complete
+            for i := 0; i < NCPU; i++ {
+               <-sem // wait for one task to complete
+            }
+            // All done.
+         }
+
+         func DoPart(sem chan int) {
+            // do the part of the computation
+            sem <-1 // signal that this piece is done
+         }
+
+         func main() {
+            runtime.GOMAXPROCS(NCPU) // runtime.GOMAXPROCS = NCPU
+            DoAll()
+         }
+      ```
+
+      - `DoAll()` 函数创建了一个 sem 通道，每个并行计算都将在对其发送完成信号；在一个 for 循环中 NCPU 个协程被启动了，每个协程会承担 `1/NCPU` 的工作量。每一个 `DoPart()` 协程都会向 sem 通道发送完成信号。
+      - `DoAll()` 会在 for 循环中等待 NCPU 个协程完成：sem 通道就像一个信号量，这份代码展示了一个经典的信号量模式。
+
+14. 并行化大量数据的计算
+
+    - 假设我们需要处理一些数量巨大且互不相关的数据项，它们从一个 in 通道被传递进来，当我们处理完以后又要将它们放入另一个 out 通道，就像一个工厂流水线一样。处理每个数据项也可能包含许多步骤：Preprocess（预处理） / StepA（步骤 A） / StepB（步骤 B） / ... / PostProcess（后处理）
+    - 一个典型的用于解决按顺序执行每个步骤的顺序流水线算法可以写成下面这样：
+      ```
+         func SerialProcessData(in <-chan *Data, out chan<- *Data) {
+            for data := range in {
+               tmpA := PreprocessData(data)
+               tmpB := ProcessStepA(tmpA)
+               tmpC := ProcessStepB(tmpB)
+               out <- PostProcessData(tmpC)
+            }
+         }
+      ```
+    - 一个更高效的计算方式是让每一个处理步骤作为一个协程独立工作。每一个步骤从上一步的输出通道中获得输入数据。这种方式仅有极少数时间会被浪费，而大部分时间所有的步骤都在一直执行中：
+      ```
+         func ParallelProcessData (in <-chan *Data, out chan<- *Data) {
+            // make channels:
+            preOut := make(chan *Data, 100)
+            stepAOut := make(chan *Data, 100)
+            stepBOut := make(chan *Data, 100)
+            stepCOut := make(chan *Data, 100)
+            // start parallel computations:
+            go PreprocessData(in, preOut)
+            go ProcessStepA(preOut,StepAOut)
+            go ProcessStepB(StepAOut,StepBOut)
+            go ProcessStepC(StepBOut,StepCOut)
+            go PostProcessData(StepCOut,out)
+         }
+      ```
+    - 通道的缓冲区大小可以用来进一步优化整个过程。
+
+15. 漏桶算法
+
+    - 考虑以下的客户端-服务器结构：客户端协程执行一个无限循环从某个源头（也许是网络）接收数据；数据读取到 Buffer 类型的缓冲区。为了避免分配过多的缓冲区以及释放缓冲区，它保留了一份空闲缓冲区列表，并且使用一个缓冲通道来表示这个列表：`var freeList = make(chan *Buffer,100)`。
+    - 这个可重用的缓冲区队列 (freeList) 与服务器是共享的。 当接收数据时，客户端尝试从 freeList 获取缓冲区；但如果此时通道为空，则会分配新的缓冲区。一旦消息被加载后，它将被发送到服务器上的 serverChan 通道：`var serverChan = make(chan *Buffer)`。
+    - 客户端的算法代码：
+
+      ```
+         func client() {
+            for {
+               var b *Buffer
+               // Grab a buffer if available; allocate if not
+               select {
+                  case b = <-freeList:
+                        // Got one; nothing more to do
+                  default:
+                        // None free, so allocate a new one
+                        b = new(Buffer)
+               }
+               loadInto(b)         // Read next message from the network
+               serverChan <- b     // Send to server
+            }
+         }
+      ```
+
+    - 服务器的循环则接收每一条来自客户端的消息并处理它，之后尝试将缓冲返回给共享的空闲缓冲区：
+      ```
+         func server() {
+            for {
+               b := <-serverChan       // Wait for work.
+               process(b)
+               // Reuse buffer if there's room.
+               select {
+                     case freeList <- b:
+                        // Reuse buffer if free slot on freeList; nothing more to do
+                     default:
+                        // Free list full, just carry on: the buffer is 'dropped'
+               }
+            }
+         }
+      ```
+    - 但是这种方法在 freeList 通道已满的时候是行不通的，因为无法放入空闲 freeList 通道的缓冲区会被“丢到地上”由垃圾收集器回收（故名：漏桶算法）。
+
+16. 对 Go 协程进行基准测试
+
+    - 函数将通过 `testing.Benchmark()` 调用 N 次（例如：`N = 1,000,000`），BenchMarkResult 有一个 `String()` 方法来输出其结果。N 的值将由 gotest 来判断并取得一个足够大的数字，以获得合理的基准测试结果。当然同样的基准测试方法也适用于普通函数。
+    - 排除指定部分的代码或者更具体的指定要测试的部分，可以使用 `testing.B.startTimer()` 和 `testing.B.stopTimer()` 来开始或结束计时器。基准测试只有在所有的测试通过后才能运行！
+
+17. 使用通道并发访问对象
+
+    - 为了保护对象被并发访问修改，可以使用协程在后台顺序执行匿名函数来替代使用同步互斥锁。
+    - 

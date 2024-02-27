@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitMultipleServer()
+	demo.InitConcAccess()
 
 	// regexp.Compile()
 
