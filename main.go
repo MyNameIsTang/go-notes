@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitConcAccess()
+	demo.InitSocket()
 
 	// regexp.Compile()
 
