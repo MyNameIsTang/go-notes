@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitSocket()
+	demo.InitTwitterJSON()
 
 	// regexp.Compile()
 
