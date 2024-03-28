@@ -48,6 +48,7 @@ Go 在编写 web 应用方面非常得力。因为目前它还没有 GUI（Graph
            ```
 
 3. 访问并读取页面数据
+
    - `http.Head()` 请求查看返回值；它的声明如下：`func Head(url string) (r *Response, err error)`。
    - 使用 `http.Get()` 获取并显示网页内容；`Get()` 返回值中的 Body 属性包含了网页内容，用 `ioutil.ReadAll()` 把它读出来。
    - `http.Redirect(w ResponseWriter, r *Request, url string, code int)`：这个函数会让浏览器重定向到 url（可以是基于请求 url 的相对路径），同时指定状态码。
@@ -66,3 +67,9 @@ Go 在编写 web 应用方面非常得力。因为目前它还没有 GUI（Graph
        http.StatusInternalServerError	= 500
      ```
    - 使用 `w.header().Set("Content-Type", "../..")`（`w ResponseWriter`） 设置头信息。比如在网页应用发送 html 字符串的时候，在输出之前执行 `w.Header().Set("Content-Type", "text/html")`。
+
+4. 写一个简单的网页应用 demo
+   - simple_webserver.go
+   - 当使用字符串常量表示 html 文本的时候，包含 `<html><body>...</body></html>` 对于让浏览器将它识别为 html 文档非常重要。
+     - 更安全的做法是在处理函数中，在写入返回内容之前将头部的 content-type 设置为 `text/html`：`w.Header().Set("Content-Type", "text/html")`。
+     - "Content-Type" 会让浏览器认为它可以使用函数` http.DetectContentType([]byte(form))` 来处理收到的数据。
