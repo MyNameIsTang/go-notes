@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitStatistics()
+	demo.InitTemplateIfelse()
 
 	// regexp.Compile()
 
