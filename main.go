@@ -25,7 +25,7 @@ import (
 
 func main() {
 
-	demo.InitTemplateIfelse()
+	demo.InitSmtpAuth()
 
 	// regexp.Compile()
 

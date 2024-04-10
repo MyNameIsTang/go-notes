@@ -1,4 +1,4 @@
-package main
+package tcpserver
 
 import (
 	"flag"
@@ -9,9 +9,9 @@ import (
 
 const maxRead = 25
 
-func main() {
-	InitTcpServerV1()
-}
+// func main() {
+// InitTcpServerV1()
+// }
 
 func InitTcpServerV1() {
 	flag.Parse()

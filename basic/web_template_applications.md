@@ -106,10 +106,12 @@ Go 在编写 web 应用方面非常得力。因为目前它还没有 GUI（Graph
    - wiki.go
 
 7. 探索 template 包
+
    - https://golang.org/pkg/text/template/
    - 模板是一项更为通用的技术方案：数据驱动的模板被创建出来，以生成文本输出。HTML 仅是其中的一种特定使用案例。
    - 模板通过与数据结构的整合来生成，通常为结构体或其切片。
    - 当数据项传递给 `tmpl.Execute()` ，它用其中的元素进行替换， 动态地重写某一小段文本。只有被导出的数据项才可以被整合进模板中。可以在 `{{` 和 `}}` 中加入数据求值或控制结构。数据项可以是值或指针，接口隐藏了他们的差异。
+
    1. 字段替换：`{{.FieldName}}`
       - 要在模板中包含某个字段的内容，使用双花括号括起以点 (.) 开头的字段名。
       - 假设 Name 是某个结构体的字段，其值要在被模板整合时替换，则在模板中使用文本 `{{.Name}}`。
@@ -129,3 +131,72 @@ Go 在编写 web 应用方面非常得力。因为目前它还没有 GUI（Graph
       - 对管道数据的输出结果用 if-else-end 设置条件约束：如果管道是空的，类似于：` {{if ``}} Will not print. {{end}} `。
       - 那么 if 条件的求值结果为 false，不会有输出内容。但如果是这样：`{{if `anything`}} Print IF part. {{else}} Print ELSE part.{{end}}`，会输出 Print IF part.。
    4. 点号和 with-end
+      - 点号 (.) 可以在 Go 模板中使用：其值 `{{.}}` 被设置为当前管道的值。
+      - with 语句将点号设为管道的值。如果管道是空的，那么不管 with-end 块之间有什么，都会被忽略。在被嵌套时，点号根据最近的作用域取得值。
+   5. 模板变量 $
+      - 可以在模板内为管道设置本地变量，变量名以 $ 符号作为前缀。变量名只能包含字母、数字和下划线。
+   6. range-end
+      - range-end 结构格式为：`{{range pipeline}} T1 {{else}} T0 {{end}}`。
+      - range 被用于在集合上迭代：管道的值必须是数组、切片或 map。如果管道的值长度为零，点号的值不受影响，且执行 T0；否则，点号被设置为数组、切片或 map 内元素的值，并执行 T1。
+      - 例如：
+        ```
+          {{range .}}
+            {{with .Author}}
+              <p><b>{{html .}}</b> wrote:</p>
+            {{else}}
+              <p>An anonymous person wrote:</p>
+            {{end}}
+            <pre>{{html .Content}}</pre>
+            <pre>{{html .Date}}</pre>
+          {{end}}
+        ```
+   7. 模板预定义函数
+      - 可以在模板代码中使用的预定义函数，例如 `printf()` 函数工作方式类似于 `fmt.Sprintf()`。
+
+8. 用 rpc 实现远程过程调用
+
+   - Go 程序之间可以使用 net/rpc 包实现相互通信，这是另一种客户端-服务器应用场景。
+   - 它提供了一种方便的途径，通过网络连接调用远程函数。当然，仅当程序运行在不同机器上时，这项技术才实用。
+   - rpc 包建立在 gob 包之上，实现了自动编码/解码传输的跨网络方法调用。
+   - 服务器端需要注册一个对象实例，与其类型名一起，使之成为一项可见的服务：它允许远程客户端跨越网络或其他 I/O 连接访问此对象已导出的方法。总之就是在网络上暴露类型的方法。
+   - rpc 包使用了 http 和 tcp 协议，以及用于数据传输的 gob 包。服务器端可以注册多个不同类型的对象（服务），但同一类型的多个对象会产生错误。
+
+9. 基于网络的通道 netchan
+
+   - 一项和 rpc 密切相关的技术是基于网络的通道。
+   - netchan 包实现了类型安全的网络化通道：它允许一个通道两端出现由网络连接的不同计算机。其实现原理是，在其中一台机器上将传输数据发送到通道中，那么就可以被另一台计算机上同类型的通道接收。
+   - 一个导出器 (exporter) 会按名称发布（一组）通道。导入器 (importer) 连接到导出的机器，并按名称导入这些通道。之后，两台机器就可按通常的方式来使用通道。网络通道不是同步的，它们类似于带缓存的通道。
+   - 发送端示例代码：
+     ```
+       exp, err := netchan.NewExporter("tcp", "netchanserver.mydomain.com:1234")
+       if err != nil {
+         log.Fatalf("Error making Exporter: %v", err)
+       }
+       ch := make(chan myType)
+       err := exp.Export("sendmyType", ch, netchan.Send)
+       if err != nil {
+         log.Fatalf("Send Error: %v", err)
+       }
+     ```
+   - 接受端示例代码：
+     ```
+       imp, err := netchan.NewImporter("tcp", "netchanserver.mydomain.com:1234")
+       if err != nil {
+         log.Fatalf("Error making Importer: %v", err)
+       }
+       ch := make(chan myType)
+       err = imp.Import("sendmyType", ch, netchan.Receive)
+       if err != nil {
+         log.Fatalf("Receive Error: %v", err)
+       }
+     ```
+
+10. 与 websocket 通信
+
+    - 与 http 协议相反，websocket 是通过客户端与服务器之间的对话，建立的基于单个持久连接的协议。然而在其他方面，其功能几乎与 http 相同。
+
+11. 用 smtp 发送邮件
+    - smtp 包实现了用于发送邮件的“简单邮件传输协议”（Simple Mail Transfer Protocol）。它有一个 Client 类型，代表一个连接到 SMTP
+      - `Dial()` 方法返回一个已连接到 SMTP 服务器的客户端 Client
+      - 设置 Mail（from，即发件人）和 Rcpt（to，即收件人）
+      - `Data()` 方法返回一个用于写入数据的 Writer，这里利用 `buf.WriteTo(wc)` 写入

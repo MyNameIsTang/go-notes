@@ -1,4 +1,4 @@
-package main
+package tcpclient
 
 import (
 	"bufio"
@@ -29,7 +29,7 @@ import (
 // 	}
 // }
 
-func main() {
+func InitTcpClient() {
 	conn, err := net.Dial("tcp", "localhost:50000")
 	checkError(err)
 	fmt.Println("First, what is your name?")
