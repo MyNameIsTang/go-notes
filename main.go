@@ -1,7 +1,7 @@
 package main
 
 import (
-	"basic/demo"
+	_ "basic/gotov1"
 )
 
 // _ "basic/urlshortener"
@@ -25,7 +25,9 @@ import (
 
 func main() {
 
-	demo.InitSmtpAuth()
+	// gotov1.InitGotoV1()
+
+	// demo.InitSmtpAuth()
 
 	// regexp.Compile()
 
